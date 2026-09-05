@@ -321,7 +321,13 @@ fn panel_footer_height(ui: &Ui) -> f32 {
     text + 2.0 * FOOTER_PAD_Y
 }
 
-/// Draws the panel footer bar: top hairline, then a clickable Active/Paused control.
+/// Extra inset from the footer’s right edge for the Stream label.
+const FOOTER_LABEL_INSET_X: f32 = 8.0;
+
+/// Downward shift of the Stream label inside the footer.
+const FOOTER_LABEL_OFFSET_Y: f32 = 3.0;
+
+/// Draws the panel footer bar: top hairline, then a clickable Stream Active/Paused control.
 pub fn panel_footer(ui: &mut Ui, auto_scroll: &mut bool) {
     let rect = ui.max_rect();
     ui.allocate_rect(rect, egui::Sense::hover());
@@ -333,23 +339,27 @@ pub fn panel_footer(ui: &mut Ui, auto_scroll: &mut bool) {
     );
 
     let label = if *auto_scroll {
-        "Active"
+        "Stream: Active"
     } else {
-        "Paused"
+        "Stream: Paused"
     };
 
-    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(rect), |ui| {
+    let content_rect = egui::Rect::from_min_max(
+        egui::pos2(rect.left(), rect.top() + FOOTER_LABEL_OFFSET_Y),
+        egui::pos2(
+            rect.right() - FOOTER_LABEL_INSET_X,
+            rect.bottom() + FOOTER_LABEL_OFFSET_Y,
+        ),
+    );
+
+    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(content_rect), |ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let response = ui
                 .add(
                     egui::Label::new(
                         egui::RichText::new(label)
                             .small()
-                            .color(if *auto_scroll {
-                                colors::FOOTER_TEXT
-                            } else {
-                                egui::Color32::from_rgb(255, 100, 100)
-                            }),
+                            .color(colors::FOOTER_TEXT),
                     )
                     .sense(egui::Sense::click()),
                 )
