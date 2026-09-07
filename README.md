@@ -1,4 +1,4 @@
-# Android Terminal
+# Android Dashboard
 
 A native GUI written in Rust for debugging Android devices and emulators on macOS.
 
@@ -69,17 +69,14 @@ The request is Chat Completions JSON: `Authorization: Bearer …`, body fields `
 
 Install platform-tools via [Android Studio](https://developer.android.com/studio) or the [SDK command-line tools](https://developer.android.com/studio#command-tools), then verify:
 
-```bash
-adb version
-```
+Android adb tool need to be available locally for the Android dashboard to run as intended. You'll also need a device connected, either hardware or via the emulator.
 
-## Run
+
+## Run the Dashboard
 
 ```bash
 cargo run -p android-terminal
 ```
-
-An Android emulator or USB-connected device must be running and authorized (`adb devices` should list it as `device`).
 
 ## Project layout
 
