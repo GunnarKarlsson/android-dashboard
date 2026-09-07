@@ -6,7 +6,7 @@ use crossbeam_channel::{Receiver, Sender};
 use regex::Regex;
 
 use crate::adb::run_adb_for_serial;
-use crate::background::signal_stop_and_detach;
+use crate::background::{signal_stop_and_detach, sleep_until_stop};
 use crate::error::AdbError;
 
 const REFRESH_INTERVAL: Duration = Duration::from_secs(60);
@@ -252,19 +252,6 @@ fn parse_storage_stats_total(text: &str) -> u64 {
         .captures_iter(text)
         .filter_map(|caps| caps.get(2)?.as_str().parse::<u64>().ok())
         .sum()
-}
-
-fn sleep_until_stop(stop_rx: &Receiver<()>, duration: Duration) {
-    let step = Duration::from_millis(100);
-    let mut elapsed = Duration::ZERO;
-
-    while elapsed < duration {
-        if stop_rx.try_recv().is_ok() {
-            return;
-        }
-        thread::sleep(step);
-        elapsed += step;
-    }
 }
 
 #[cfg(test)]

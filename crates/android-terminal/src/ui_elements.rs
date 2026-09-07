@@ -52,9 +52,9 @@ pub fn canvas_margin_frame() -> egui::Frame {
 #[cfg(target_os = "macos")]
 pub fn title_bar(ctx: &Context, frame: &eframe::Frame) {
     let over_traffic_lights = ctx.input(|i| {
-        i.pointer
-            .latest_pos()
-            .is_some_and(|pos| pos.x < 96.0 && pos.y >= 0.0 && pos.y < theme::TITLE_BAR_HEIGHT)
+        i.pointer.latest_pos().is_some_and(|pos| {
+            pos.x < theme::TRAFFIC_LIGHTS_WIDTH && pos.y >= 0.0 && pos.y < theme::TITLE_BAR_HEIGHT
+        })
     });
     crate::macos::sync_traffic_lights(frame, theme::TITLE_BAR_HEIGHT, over_traffic_lights);
 
@@ -81,7 +81,7 @@ pub fn title_bar(ctx: &Context, frame: &eframe::Frame) {
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
                 "Android Terminal",
-                FontId::new(13.0, FontFamily::Proportional),
+                FontId::new(theme::FONT_BODY, FontFamily::Proportional),
                 colors::OFF_WHITE,
             );
             ui.painter().hline(
@@ -124,16 +124,21 @@ pub fn tag_color_index(tag: &str) -> usize {
     hasher.finish() as usize % colors::TAG_HIGHLIGHTS.len()
 }
 
+const BADGE_CORNER_RADIUS: u8 = 4;
+const BADGE_PAD_X: i8 = 6;
+const BADGE_PAD_Y: i8 = 2;
+const BADGE_GAP: f32 = 4.0;
+
 /// Removable tag-filter badge. Returns `true` when the remove control is clicked.
 pub fn tag_filter_badge(ui: &mut Ui, label: &str, bg: egui::Color32, fg: egui::Color32) -> bool {
     let mut remove = false;
     egui::Frame::default()
         .fill(bg)
-        .corner_radius(egui::CornerRadius::same(4))
-        .inner_margin(egui::Margin::symmetric(6, 2))
+        .corner_radius(egui::CornerRadius::same(BADGE_CORNER_RADIUS))
+        .inner_margin(egui::Margin::symmetric(BADGE_PAD_X, BADGE_PAD_Y))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing.x = 4.0;
+                ui.spacing_mut().item_spacing.x = BADGE_GAP;
                 ui.label(egui::RichText::new(label).color(fg).monospace());
                 if ui
                     .small_button("×")
@@ -158,7 +163,7 @@ pub fn tag_filter_row(
     }
 
     ui.horizontal_wrapped(|ui| {
-        ui.spacing_mut().item_spacing = egui::vec2(6.0, 6.0);
+        ui.spacing_mut().item_spacing = egui::vec2(theme::ITEM_SPACING_Y, theme::ITEM_SPACING_Y);
         for (index, filter) in tags.iter().enumerate() {
             let (bg, fg) =
                 colors::TAG_HIGHLIGHTS[filter.color_index % colors::TAG_HIGHLIGHTS.len()];
@@ -205,6 +210,7 @@ pub fn panel_with_header_actions<R>(
 
 /// Downward shift of header icons relative to the title.
 const HEADER_ICON_OFFSET_Y: f32 = 2.0;
+const HEADER_ICON_WIDTH_RATIO: f32 = 1.5;
 
 /// Draws the panel title row: optional leading icon, heading, then extra header widgets.
 fn panel_header(
@@ -214,11 +220,11 @@ fn panel_header(
     add_header_actions: impl FnOnce(&mut Ui),
 ) {
     ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 6.0;
+        ui.spacing_mut().item_spacing.x = theme::ITEM_SPACING_Y;
         if let Some(icon) = icon {
             let height = TextStyle::Heading.resolve(ui.style()).size;
             let image = egui::Image::new(icon)
-                .fit_to_exact_size(egui::vec2(height * 1.5, height))
+                .fit_to_exact_size(egui::vec2(height * HEADER_ICON_WIDTH_RATIO, height))
                 .max_height(height)
                 .show_loading_spinner(false)
                 .tint(colors::HEADER_ICON);

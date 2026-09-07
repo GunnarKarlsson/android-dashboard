@@ -43,7 +43,7 @@ fn show_protocol_stats(ui: &mut egui::Ui, stats: &ProtocolStats) {
         .show(ui, |ui| {
             egui::Grid::new("app_traffic")
                 .num_columns(6)
-                .spacing([12.0, 4.0])
+                .spacing(theme::GRID_SPACING)
                 .striped(true)
                 .show(ui, |ui| {
                     ui.label("Package");

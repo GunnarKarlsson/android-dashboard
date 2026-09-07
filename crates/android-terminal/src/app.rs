@@ -18,6 +18,7 @@ const MAX_DRAIN_PER_FRAME: usize = 500;
 const MAX_INSIGHTS: usize = 100;
 const INSIGHT_SETTLE: Duration = Duration::from_secs(5);
 const INSIGHT_COOLDOWN: Duration = Duration::from_secs(30);
+const REPAINT_INTERVAL: Duration = Duration::from_millis(200);
 
 pub struct App {
     pub adb_error: Option<String>,
@@ -907,7 +908,7 @@ impl App {
             ctx.request_repaint();
         }
         if self.selected_serial.is_some() {
-            ctx.request_repaint_after(Duration::from_millis(200));
+            ctx.request_repaint_after(REPAINT_INTERVAL);
         }
     }
 }

@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use crossbeam_channel::{Receiver, Sender};
 
-use crate::background::signal_stop_and_detach;
+use crate::background::{signal_stop_and_detach, sleep_until_stop};
 use crate::error::AdbError;
 use crate::stats::{fetch_memory_stats, MemoryStats};
 
@@ -80,19 +80,6 @@ impl RamPoller {
 impl Drop for RamPoller {
     fn drop(&mut self) {
         self.shutdown();
-    }
-}
-
-fn sleep_until_stop(stop_rx: &Receiver<()>, duration: Duration) {
-    let step = Duration::from_millis(100);
-    let mut elapsed = Duration::ZERO;
-
-    while elapsed < duration {
-        if stop_rx.try_recv().is_ok() {
-            return;
-        }
-        thread::sleep(step);
-        elapsed += step;
     }
 }
 

@@ -6,6 +6,9 @@ use crate::app::{App, InsightStatus};
 use crate::theme;
 use crate::ui_elements;
 
+const REPLY_GAP: f32 = 8.0;
+const REPLY_SEPARATOR_GAP: f32 = 4.0;
+
 /// Draws the insight body and returns the number of text lines in the reply area.
 pub fn insight_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usize {
     if app.selected_serial.is_none() {
@@ -34,9 +37,9 @@ pub fn insight_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usi
                 ui.set_min_width(ui.available_width());
                 for (index, reply) in app.insight.replies.iter().enumerate() {
                     if index > 0 {
-                        ui.add_space(8.0);
+                        ui.add_space(REPLY_GAP);
                         ui.separator();
-                        ui.add_space(4.0);
+                        ui.add_space(REPLY_SEPARATOR_GAP);
                     }
                     ui.label(reply.as_str());
                 }

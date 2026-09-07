@@ -3,6 +3,7 @@ use eframe::egui;
 
 use crate::app::App;
 use crate::format::{format_bytes_mb, format_rate_mb};
+use crate::theme;
 use crate::ui_elements;
 
 pub fn network_panel(ui: &mut egui::Ui, app: &App) {
@@ -41,7 +42,7 @@ fn show_network_table(ui: &mut egui::Ui, stats: &[NetworkRow]) {
         .show(ui, |ui| {
             egui::Grid::new("network_stats")
                 .num_columns(5)
-                .spacing([12.0, 4.0])
+                .spacing(theme::GRID_SPACING)
                 .striped(true)
                 .show(ui, |ui| {
                     ui.label("Interface");

@@ -11,9 +11,13 @@ use regex::Regex;
 use crate::background::signal_stop_and_detach;
 use crate::error::AdbError;
 
-static MULTIPLE_SPACES: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\s+").expect("valid multiple spaces regex")
-});
+const KILL_WAIT_ATTEMPTS: u32 = 10;
+const KILL_WAIT_SLEEP: Duration = Duration::from_millis(20);
+const MESSAGE_WRAP_WIDTH: usize = 120;
+const PID_TID_FIELD_WIDTH: usize = 5;
+
+static MULTIPLE_SPACES: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\s+").expect("valid multiple spaces regex"));
 
 static LOGCAT_LINE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
@@ -40,16 +44,22 @@ impl LogEntry {
 
     pub fn format_line_with_timestamp(&self, show_timestamp: bool) -> String {
         let is_continuation = self.timestamp.is_empty() && self.tag.is_empty();
-        
+
         if is_continuation {
             return self.message.clone();
         }
 
         let suffix = format!("{} {}: {}", self.level, self.tag, self.message);
-        
+
         if show_timestamp {
-            let body = format!("{:>5} {:>5} {}", self.pid, self.tid, suffix);
-            
+            let body = format!(
+                "{pid:>width$} {tid:>width$} {suffix}",
+                pid = self.pid,
+                tid = self.tid,
+                suffix = suffix,
+                width = PID_TID_FIELD_WIDTH,
+            );
+
             if self.timestamp.is_empty() {
                 body
             } else {
@@ -290,11 +300,11 @@ fn report_logcat_exit(child: &Arc<std::sync::Mutex<Child>>, entry_tx: &Sender<Lo
 fn kill_child(child: &Arc<std::sync::Mutex<Child>>) {
     if let Ok(mut guard) = child.lock() {
         let _ = guard.kill();
-        for _ in 0..10 {
+        for _ in 0..KILL_WAIT_ATTEMPTS {
             if guard.try_wait().ok().flatten().is_some() {
                 return;
             }
-            thread::sleep(Duration::from_millis(20));
+            thread::sleep(KILL_WAIT_SLEEP);
         }
         let _ = guard.wait();
     }
@@ -304,32 +314,38 @@ fn parse_logcat_line(line: &str) -> Vec<LogEntry> {
     let Some(captures) = LOGCAT_LINE.captures(line) else {
         return Vec::new();
     };
-    
+
     let Some(pid) = captures.get(2).and_then(|m| m.as_str().parse().ok()) else {
         return Vec::new();
     };
-    
+
     let Some(tid) = captures.get(3).and_then(|m| m.as_str().parse().ok()) else {
         return Vec::new();
     };
 
     let message = MULTIPLE_SPACES
         .replace_all(
-            &captures
-                .get(6)
-                .map(|m| m.as_str())
-                .unwrap_or_default(),
+            &captures.get(6).map(|m| m.as_str()).unwrap_or_default(),
             " ",
         )
         .trim()
         .to_string();
 
-    let timestamp = captures.get(1).map(|m| m.as_str().to_string()).unwrap_or_default();
-    let level = captures.get(4).and_then(|m| m.as_str().chars().next()).unwrap_or('I');
-    let tag = captures.get(5).map(|m| m.as_str().to_string()).unwrap_or_default();
+    let timestamp = captures
+        .get(1)
+        .map(|m| m.as_str().to_string())
+        .unwrap_or_default();
+    let level = captures
+        .get(4)
+        .and_then(|m| m.as_str().chars().next())
+        .unwrap_or('I');
+    let tag = captures
+        .get(5)
+        .map(|m| m.as_str().to_string())
+        .unwrap_or_default();
 
     let mut entries = Vec::new();
-    
+
     if message.is_empty() {
         entries.push(LogEntry {
             timestamp,
@@ -345,31 +361,39 @@ fn parse_logcat_line(line: &str) -> Vec<LogEntry> {
     let mut start = 0;
     while start < message.len() {
         // Calculate maximum chunk size remaining
-        let max_len = std::cmp::min(120, message.len() - start);
-        
+        let max_len = std::cmp::min(MESSAGE_WRAP_WIDTH, message.len() - start);
+
         // Find a safe UTF-8 character boundary. We search backwards from the max_len
         // offset to avoid splitting a multi-byte character.
         let mut chunk_len = max_len;
         while !message.is_char_boundary(start + chunk_len) {
             chunk_len -= 1;
         }
-        
-        // In the extremely unlikely event a single character is > 120 bytes, handle it
+
+        // In the extremely unlikely event a single character is wider than MESSAGE_WRAP_WIDTH, handle it
         if chunk_len == 0 {
             chunk_len = message[start..].chars().next().unwrap().len_utf8();
         }
 
         let chunk = &message[start..start + chunk_len];
-        
+
         entries.push(LogEntry {
-            timestamp: if start == 0 { timestamp.clone() } else { String::new() },
+            timestamp: if start == 0 {
+                timestamp.clone()
+            } else {
+                String::new()
+            },
             pid,
             tid,
             level,
-            tag: if start == 0 { tag.clone() } else { String::new() },
+            tag: if start == 0 {
+                tag.clone()
+            } else {
+                String::new()
+            },
             message: chunk.to_string(),
         });
-        
+
         start += chunk_len;
     }
 

@@ -6,6 +6,13 @@ use crate::panels;
 use crate::theme;
 use crate::ui_elements;
 
+// Share is egui's term for the relative width of a panel.
+const COL_SHARE: f32 = 1.0;
+const GAUGES_SHARE: f32 = 1.5;
+const STORAGE_DETAILS_SHARE: f32 = 2.5;
+const LOGCAT_SHARE: f32 = 2.0;
+const INSIGHT_SHARE: f32 = 1.5;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PanelId {
     Devices,
@@ -74,26 +81,38 @@ pub fn create_default_tree() -> Tree<PanelId> {
         &mut tiles,
         root,
         &[
-            (left_column, 1.0),
-            (middle_column, 1.0),
-            (right_column, 1.0),
+            (left_column, COL_SHARE),
+            (middle_column, COL_SHARE),
+            (right_column, COL_SHARE),
         ],
     );
     set_linear_shares(
         &mut tiles,
         left_column,
-        &[(devices, 1.0), (gauges, 1.5), (system_stats, 2.5)],
+        &[
+            (devices, COL_SHARE),
+            (gauges, GAUGES_SHARE),
+            (system_stats, STORAGE_DETAILS_SHARE),
+        ],
     );
-    set_linear_shares(&mut tiles, gauges, &[(ram, 1.0), (storage, 1.0)]);
+    set_linear_shares(
+        &mut tiles,
+        gauges,
+        &[(ram, COL_SHARE), (storage, COL_SHARE)],
+    );
     set_linear_shares(
         &mut tiles,
         middle_column,
-        &[(logcat_all, 2.0), (network, 1.0), (protocols, 1.0)],
+        &[
+            (logcat_all, LOGCAT_SHARE),
+            (network, COL_SHARE),
+            (protocols, COL_SHARE),
+        ],
     );
     set_linear_shares(
         &mut tiles,
         right_column,
-        &[(logcat_errors, 2.0), (insight, 1.5)],
+        &[(logcat_errors, LOGCAT_SHARE), (insight, INSIGHT_SHARE)],
     );
 
     Tree::new("android_terminal_tiles", root, tiles)

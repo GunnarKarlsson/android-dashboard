@@ -6,14 +6,10 @@ use crate::config::InsightConfig;
 use crate::reduce::InsightSnapshot;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
-
-const SYSTEM: &str = "You are an Android runtime analyst inside a terminal HUD.\n\
-Comment only on the supplied snapshot. Do not invent stack frames.\n\
-Output:\n\
-1) Verdict in one line: HEALTHY | DEGRADING | FAILING\n\
-2) Top issues: what / evidence count / likely cause\n\
-3) Next checks, max 3 bullets\n\
-Max 120 words. No preamble.";
+const TEMPERATURE: f64 = 0.2;
+const MAX_TOKENS: u32 = 350;
+const MAX_NEXT_CHECKS: u32 = 3;
+const MAX_REPLY_WORDS: u32 = 120;
 
 #[derive(Debug, thiserror::Error)]
 pub enum InsightError {
@@ -50,14 +46,23 @@ pub fn complete(
     );
 
     let url = config.completions_url();
+    let system = format!(
+        "You are an Android runtime analyst inside a terminal HUD.\n\
+Comment only on the supplied snapshot. Do not invent stack frames.\n\
+Output:\n\
+1) Verdict in one line: HEALTHY | DEGRADING | FAILING\n\
+2) Top issues: what / evidence count / likely cause\n\
+3) Next checks, max {MAX_NEXT_CHECKS} bullets\n\
+Max {MAX_REPLY_WORDS} words. No preamble."
+    );
     let body = json!({
         "model": config.model,
-        "temperature": 0.2,
-        "max_tokens": 350,
+        "temperature": TEMPERATURE,
+        "max_tokens": MAX_TOKENS,
         "stream": false,
         "thinking": { "type": "disabled" },
         "messages": [
-            { "role": "system", "content": SYSTEM },
+            { "role": "system", "content": system },
             { "role": "user", "content": snapshot_json },
         ],
     });

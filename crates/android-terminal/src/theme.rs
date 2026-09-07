@@ -107,6 +107,23 @@ pub const PANEL_CANVAS_MARGIN: i8 = 12;
 /// Height of the custom macOS title bar under the native traffic lights.
 pub const TITLE_BAR_HEIGHT: f32 = 36.0;
 
+/// Width of the native traffic-light hit region from the left edge.
+pub const TRAFFIC_LIGHTS_WIDTH: f32 = 96.0;
+
+/// Default window inner size `[width, height]`.
+pub const DEFAULT_WINDOW_SIZE: [f32; 2] = [1400.0, 900.0];
+
+pub const FONT_SMALL: f32 = 10.0;
+pub const FONT_BODY: f32 = 13.0;
+pub const FONT_BUTTON: f32 = 14.0;
+pub const FONT_HEADING: f32 = 16.0;
+
+pub const ITEM_SPACING_X: f32 = 8.0;
+pub const ITEM_SPACING_Y: f32 = 6.0;
+
+/// Horizontal and vertical spacing inside data grids.
+pub const GRID_SPACING: [f32; 2] = [12.0, 4.0];
+
 /// Panel header icons.
 pub mod icons {
     /// RAM module icon.
@@ -163,26 +180,27 @@ pub fn configure(ctx: &Context) {
 
 fn apply_shared_style(style: &mut egui::Style) {
     style.spacing.window_margin = egui::Margin::same(PANEL_INNER_PADDING);
-    style.spacing.item_spacing = egui::vec2(8.0, 6.0);
+    style.spacing.item_spacing = egui::vec2(ITEM_SPACING_X, ITEM_SPACING_Y);
 
     let bold = FontFamily::Name("jetbrains_mono_bold".into());
     style.text_styles.insert(
         TextStyle::Small,
-        FontId::new(10.0, FontFamily::Proportional),
+        FontId::new(FONT_SMALL, FontFamily::Proportional),
     );
-    style
-        .text_styles
-        .insert(TextStyle::Body, FontId::new(13.0, FontFamily::Proportional));
+    style.text_styles.insert(
+        TextStyle::Body,
+        FontId::new(FONT_BODY, FontFamily::Proportional),
+    );
     style.text_styles.insert(
         TextStyle::Button,
-        FontId::new(14.0, FontFamily::Proportional),
+        FontId::new(FONT_BUTTON, FontFamily::Proportional),
     );
     style
         .text_styles
-        .insert(TextStyle::Heading, FontId::new(16.0, bold));
+        .insert(TextStyle::Heading, FontId::new(FONT_HEADING, bold));
     style.text_styles.insert(
         TextStyle::Monospace,
-        FontId::new(13.0, FontFamily::Monospace),
+        FontId::new(FONT_BODY, FontFamily::Monospace),
     );
 }
 

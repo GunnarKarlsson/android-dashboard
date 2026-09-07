@@ -8,6 +8,8 @@ use objc2_app_kit::{
 use objc2_foundation::NSPoint;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
+const FRAME_DRIFT: f64 = 0.5;
+
 /// Vertically centers the close/miniaturize/zoom buttons in the title bar.
 ///
 /// AppKit relayouts these buttons after resize; this writes origin only when it has drifted.
@@ -49,7 +51,7 @@ pub fn sync_traffic_lights(frame: &eframe::Frame, title_bar_height: f32, colored
         let height = f64::from(title_bar_height);
         let window_height = window.frame().size.height;
         let mut container_frame = titlebar_container.frame();
-        if (container_frame.size.height - height).abs() > 0.5 {
+        if (container_frame.size.height - height).abs() > FRAME_DRIFT {
             container_frame.size.height = height;
             container_frame.origin.y = window_height - height;
             titlebar_container.setFrame(container_frame);
@@ -63,7 +65,7 @@ pub fn sync_traffic_lights(frame: &eframe::Frame, title_bar_height: f32, colored
                 button.setEnabled(colored);
             }
             let origin = button.frame().origin;
-            if (origin.y - origin_y).abs() > 0.5 {
+            if (origin.y - origin_y).abs() > FRAME_DRIFT {
                 button.setFrameOrigin(NSPoint::new(origin.x, origin_y));
             }
         }

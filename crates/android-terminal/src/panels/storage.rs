@@ -77,7 +77,7 @@ fn show_storage_categories(ui: &mut egui::Ui, categories: &[StorageCategory]) {
 
     egui::Grid::new("storage_categories")
         .num_columns(2)
-        .spacing([12.0, 4.0])
+        .spacing(theme::GRID_SPACING)
         .striped(true)
         .show(ui, |ui| {
             ui.label("Category");
@@ -111,7 +111,7 @@ fn show_app_storage(ui: &mut egui::Ui, storage: &AppStorageState) {
 
     egui::Grid::new("app_storage")
         .num_columns(2)
-        .spacing([12.0, 4.0])
+        .spacing(theme::GRID_SPACING)
         .striped(true)
         .show(ui, |ui| {
             ui.label("Package");

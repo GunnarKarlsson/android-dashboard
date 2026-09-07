@@ -2,6 +2,14 @@ use eframe::egui;
 
 use crate::theme;
 
+const DIAMETER_MIN: f32 = 80.0;
+const DIAMETER_MAX: f32 = 160.0;
+const RADIUS_FRACTION: f32 = 0.38;
+const STROKE_FRACTION: f32 = 0.12;
+const PERCENT_FONT_SIZE: f32 = 28.0;
+const LABEL_FONT_SIZE: f32 = 12.0;
+const ARC_STEPS: usize = 64;
+
 pub(crate) fn show_usage_donut(
     ui: &mut egui::Ui,
     scroll_id: egui::Id,
@@ -21,14 +29,14 @@ pub(crate) fn show_usage_donut(
             ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
                 ui.set_width(ui.available_width());
 
-                let diameter = ui.available_width().clamp(80.0, 160.0);
+                let diameter = ui.available_width().clamp(DIAMETER_MIN, DIAMETER_MAX);
                 let (rect, _) =
                     ui.allocate_exact_size(egui::vec2(diameter, diameter), egui::Sense::hover());
 
                 let painter = ui.painter_at(rect);
                 let center = rect.center();
-                let radius = diameter * 0.38;
-                let stroke_width = diameter * 0.12;
+                let radius = diameter * RADIUS_FRACTION;
+                let stroke_width = diameter * STROKE_FRACTION;
 
                 paint_usage_donut(
                     &painter,
@@ -43,15 +51,15 @@ pub(crate) fn show_usage_donut(
                     center,
                     egui::Align2::CENTER_CENTER,
                     format!("{percent}%"),
-                    egui::FontId::proportional(28.0),
+                    egui::FontId::proportional(PERCENT_FONT_SIZE),
                     theme::colors::OFF_WHITE,
                 );
 
-                ui.add_space(6.0);
+                ui.add_space(theme::ITEM_SPACING_Y);
                 ui.label(
                     egui::RichText::new(format!("{used_label} / {total_label}"))
                         .color(theme::colors::LOG_DEBUG)
-                        .size(12.0),
+                        .size(LABEL_FONT_SIZE),
                 );
             });
         });
@@ -103,7 +111,7 @@ fn paint_ring_arc(
     color: egui::Color32,
 ) {
     painter.add(egui::Shape::Path(egui::epaint::PathShape {
-        points: arc_points(center, radius, start, sweep, 64),
+        points: arc_points(center, radius, start, sweep, ARC_STEPS),
         closed: false,
         fill: egui::Color32::TRANSPARENT,
         stroke: egui::epaint::PathStroke::new(stroke_width, color),

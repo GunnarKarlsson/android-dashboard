@@ -7,7 +7,7 @@ use crossbeam_channel::{Receiver, Sender};
 use regex::Regex;
 
 use crate::adb::run_adb_for_serial;
-use crate::background::signal_stop_and_detach;
+use crate::background::{signal_stop_and_detach, sleep_until_stop};
 use crate::error::AdbError;
 
 const DEFAULT_POLL_INTERVAL: Duration = Duration::from_secs(1);
@@ -344,19 +344,6 @@ fn compute_rate(current: u64, previous: u64, elapsed_secs: f64) -> Option<f64> {
     }
 
     Some(delta / elapsed_secs)
-}
-
-fn sleep_until_stop(stop_rx: &Receiver<()>, duration: Duration) {
-    let step = Duration::from_millis(100);
-    let mut elapsed = Duration::ZERO;
-
-    while elapsed < duration {
-        if stop_rx.try_recv().is_ok() {
-            return;
-        }
-        thread::sleep(step);
-        elapsed += step;
-    }
 }
 
 fn next_backoff_interval(current: Duration) -> Duration {

@@ -10,6 +10,7 @@ const PREV_TIME_WINDOW: Duration = Duration::from_secs(180);
 const MAX_CLUSTERS: usize = 8;
 const MAX_SAMPLES: usize = 2;
 const MAX_JSON_BYTES: usize = 6 * 1024;
+const DIGEST_COUNT_BUCKET: u32 = 5;
 
 /// Enum indicating allowed logcat levels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -78,11 +79,17 @@ impl InsightSnapshot {
         serde_json::to_string_pretty(self)
     }
 
-    /// Builds a short key from top clusters as `fingerprint:count/5` pairs joined by `|`.
+    /// Builds a short key from top clusters as `fingerprint:{count / DIGEST_COUNT_BUCKET}` pairs joined by `|`.
     pub fn digest_key(&self) -> String {
         self.clusters
             .iter()
-            .map(|cluster| format!("{}:{}", cluster.fingerprint, cluster.count / 5))
+            .map(|cluster| {
+                format!(
+                    "{}:{}",
+                    cluster.fingerprint,
+                    cluster.count / DIGEST_COUNT_BUCKET
+                )
+            })
             .collect::<Vec<_>>()
             .join("|")
     }
@@ -271,8 +278,8 @@ mod tests {
         let snap_a = build_snapshot(lines_a, LevelMask::Error, "Pixel 8", "serial-1", now);
         let snap_b = build_snapshot(lines_b, LevelMask::Error, "Pixel 8", "serial-1", now);
         assert_eq!(snap_a.digest_key(), snap_b.digest_key());
-        assert_eq!(snap_a.clusters[0].count / 5, 0);
-        assert_eq!(snap_b.clusters[0].count / 5, 0);
+        assert_eq!(snap_a.clusters[0].count / DIGEST_COUNT_BUCKET, 0);
+        assert_eq!(snap_b.clusters[0].count / DIGEST_COUNT_BUCKET, 0);
     }
 
     #[test]

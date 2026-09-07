@@ -60,7 +60,7 @@ fn main() -> eframe::Result<()> {
     let adb_error = Adb::check_available().err().map(|e| e.to_string());
 
     let mut viewport = eframe::egui::ViewportBuilder::default()
-        .with_inner_size([1400.0, 900.0])
+        .with_inner_size(theme::DEFAULT_WINDOW_SIZE)
         .with_title("Android Terminal");
     #[cfg(target_os = "macos")]
     {
