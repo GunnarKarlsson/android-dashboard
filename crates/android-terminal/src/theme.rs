@@ -27,8 +27,6 @@ pub mod colors {
     pub const HEADER_ICON: Color32 = Color32::from_rgb(176, 180, 188);
     /// Muted footer status text inside panel cards.
     pub const FOOTER_TEXT: Color32 = Color32::from_rgb(140, 146, 156);
-    /// Native window title bar fill (macOS fullsize content chrome).
-    pub const TITLE_BAR: Color32 = Color32::from_rgb(48, 50, 54);
     /// Resize handle highlight (gap stays empty when idle).
     pub const PANEL_SPLITTER_HOVER: Color32 = Color32::from_rgb(96, 102, 112);
     /// Header rule inside a panel card.
@@ -107,7 +105,7 @@ pub const PANEL_INNER_PADDING: i8 = 8;
 pub const PANEL_CANVAS_MARGIN: i8 = 12;
 
 /// Height of the custom macOS title bar under the native traffic lights.
-pub const TITLE_BAR_HEIGHT: f32 = 28.0;
+pub const TITLE_BAR_HEIGHT: f32 = 36.0;
 
 /// Header icons (SVG) and Nerd Font glyphs.
 pub mod icons {

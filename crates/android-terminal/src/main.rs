@@ -1,6 +1,8 @@
 mod app;
 mod format;
 mod layout;
+#[cfg(target_os = "macos")]
+mod macos;
 mod panels;
 mod theme;
 mod ui_elements;
@@ -30,11 +32,11 @@ impl TerminalApp {
 }
 
 impl eframe::App for TerminalApp {
-    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &eframe::egui::Context, frame: &mut eframe::Frame) {
         self.inner.tick(ctx);
 
         #[cfg(target_os = "macos")]
-        ui_elements::title_bar(ctx);
+        ui_elements::title_bar(ctx, frame);
 
         eframe::egui::CentralPanel::default()
             .frame(ui_elements::shell_frame(ctx))

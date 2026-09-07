@@ -16,3 +16,19 @@ egui_extras.workspace = true
 egui_tiles.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.5.2"
+objc2-app-kit = { version = "0.2.2", default-features = false, features = [
+    "std",
+    "NSAppearance",
+    "NSButton",
+    "NSControl",
+    "NSResponder",
+    "NSView",
+    "NSWindow",
+] }
+objc2-foundation = { version = "0.2.2", default-features = false, features = [
+    "std",
+] }
+raw-window-handle = "0.6"

@@ -1,5 +1,5 @@
-mod donut;
 pub mod devices;
+mod donut;
 pub mod insight;
 pub mod logcat;
 pub mod network;

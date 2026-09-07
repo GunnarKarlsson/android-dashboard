@@ -570,10 +570,7 @@ impl App {
                     }
                     self.insight.status = InsightStatus::Idle;
                     self.insight.ever_succeeded = true;
-                    tracing::info!(
-                        stored = self.insight.replies.len(),
-                        "insight reply stored"
-                    );
+                    tracing::info!(stored = self.insight.replies.len(), "insight reply stored");
                     updated = true;
                 }
                 InsightUpdate::Error { .. } => {
@@ -654,7 +651,7 @@ impl App {
 
     fn drain_logcat(&mut self) -> bool {
         let entries = take_log_entries(self.logcat_rx.as_ref());
-        
+
         if self.auto_update_feed {
             let mut updated = false;
             if !self.pending_log_lines.is_empty() {
@@ -673,18 +670,19 @@ impl App {
         } else {
             if !entries.is_empty() {
                 for entry in entries {
-                    self.pending_log_lines.push_back(CachedLogLine::from_entry(&entry));
+                    self.pending_log_lines
+                        .push_back(CachedLogLine::from_entry(&entry));
                 }
                 trim_buffer(&mut self.pending_log_lines);
             }
             // Even though we received logs, we didn't update the visible lines.
-            false 
+            false
         }
     }
 
     fn drain_error_logcat(&mut self) -> bool {
         let entries = take_log_entries(self.error_logcat_rx.as_ref());
-        
+
         if self.error_auto_update_feed {
             let mut updated = false;
             if !self.pending_error_lines.is_empty() {
@@ -696,7 +694,8 @@ impl App {
             if !entries.is_empty() {
                 for entry in entries {
                     if entry.is_error_level() {
-                        self.error_lines.push_back(CachedLogLine::from_entry(&entry));
+                        self.error_lines
+                            .push_back(CachedLogLine::from_entry(&entry));
                         self.insight.last_error_at = Some(Instant::now());
                         updated = true;
                     }
@@ -710,7 +709,8 @@ impl App {
             if !entries.is_empty() {
                 for entry in entries {
                     if entry.is_error_level() {
-                        self.pending_error_lines.push_back(CachedLogLine::from_entry(&entry));
+                        self.pending_error_lines
+                            .push_back(CachedLogLine::from_entry(&entry));
                         self.insight.last_error_at = Some(Instant::now());
                     }
                 }

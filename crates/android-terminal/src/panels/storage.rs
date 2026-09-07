@@ -2,9 +2,7 @@ use adb_client::{StorageCategory, StorageOverview};
 use eframe::egui;
 
 use crate::app::{App, AppStorageState};
-use crate::format::{
-    format_bytes, format_bytes_mb, format_gb_from_bytes, truncate_package_name,
-};
+use crate::format::{format_bytes, format_bytes_mb, format_gb_from_bytes, truncate_package_name};
 use crate::theme;
 use crate::ui_elements;
 

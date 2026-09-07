@@ -46,12 +46,19 @@ pub fn canvas_margin_frame() -> egui::Frame {
     egui::Frame::NONE.inner_margin(egui::Margin::same(theme::PANEL_CANVAS_MARGIN))
 }
 
-/// macOS title strip: dark grey bar with off-white app title; traffic lights stay native.
+/// macOS title strip: same fill as the panel canvas; traffic lights stay native.
 #[cfg(target_os = "macos")]
-pub fn title_bar(ctx: &Context) {
+pub fn title_bar(ctx: &Context, frame: &eframe::Frame) {
+    let over_traffic_lights = ctx.input(|i| {
+        i.pointer
+            .latest_pos()
+            .is_some_and(|pos| pos.x < 96.0 && pos.y >= 0.0 && pos.y < theme::TITLE_BAR_HEIGHT)
+    });
+    crate::macos::sync_traffic_lights(frame, theme::TITLE_BAR_HEIGHT, over_traffic_lights);
+
     egui::TopBottomPanel::top("os_title_bar")
         .exact_height(theme::TITLE_BAR_HEIGHT)
-        .frame(egui::Frame::NONE.fill(colors::TITLE_BAR))
+        .frame(egui::Frame::NONE.fill(colors::BG_EXTREME))
         .show_separator_line(false)
         .show(ctx, |ui| {
             let rect = ui.max_rect();
@@ -74,6 +81,11 @@ pub fn title_bar(ctx: &Context) {
                 "Android Terminal",
                 FontId::new(13.0, FontFamily::Proportional),
                 colors::OFF_WHITE,
+            );
+            ui.painter().hline(
+                rect.x_range(),
+                rect.bottom() - 0.5,
+                egui::Stroke::new(1.0, colors::PANEL_SEPARATOR),
             );
         });
 }
