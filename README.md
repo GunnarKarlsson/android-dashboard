@@ -67,9 +67,11 @@ The request is Chat Completions JSON: `Authorization: Bearer …`, body fields `
 - **Rust** 1.88+ (see `rust-toolchain.toml`)
 - **Android SDK platform-tools** with `adb` on your `PATH`
 
-Install platform-tools via [Android Studio](https://developer.android.com/studio) or the [SDK command-line tools](https://developer.android.com/studio#command-tools), then verify:
-
-Android adb tool need to be available locally for the Android dashboard to run as intended. You'll also need a device connected, either hardware or via the emulator.
+Install platform-tools via [Android Studio](https://developer.android.com/studio) and verify adb is available:
+```
+adb version
+```
+You'll need a device connected, via USB or via emulator.
 
 
 ## Run the Dashboard
