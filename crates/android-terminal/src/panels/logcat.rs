@@ -6,7 +6,8 @@ use crate::app::{App, CachedLogLine, LogcatTagFilter};
 use crate::theme;
 use crate::ui_elements;
 
-pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) {
+/// Draws the all-logcat body and returns the number of rows in the log text area.
+pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usize {
     ui_elements::filter_row(ui, |ui| {
         ui.label("Filter:");
         ui.add(
@@ -41,7 +42,7 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) {
 
     if app.selected_serial.is_none() {
         ui_elements::panel_loading(ui);
-        return;
+        return 0;
     }
 
     if let Some(error) = &app.logcat_error {
@@ -50,12 +51,12 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) {
 
     if app.logcat_rx.is_none() {
         ui_elements::panel_loading(ui);
-        return;
+        return 0;
     }
 
     if app.log_lines.is_empty() {
         ui.label("Waiting for log output…");
-        return;
+        return 0;
     }
 
     let filter = app.logcat_filter.clone();
@@ -73,9 +74,11 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) {
         LogScrollStyle::ByLevel,
         Some(&tag_filters),
     );
+    matching.len()
 }
 
-pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) {
+/// Draws the error-logcat body and returns the number of rows in the log text area.
+pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usize {
     ui_elements::filter_row(ui, |ui| {
         ui.label("Filter:");
         ui.add(
@@ -88,7 +91,7 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
 
     if app.selected_serial.is_none() {
         ui_elements::panel_loading(ui);
-        return;
+        return 0;
     }
 
     if let Some(error) = &app.error_logcat_error {
@@ -97,12 +100,12 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
 
     if app.error_logcat_rx.is_none() {
         ui_elements::panel_loading(ui);
-        return;
+        return 0;
     }
 
     if app.error_lines.is_empty() {
         ui.label("Waiting for error log output…");
-        return;
+        return 0;
     }
 
     let filter = app.error_logcat_filter.clone();
@@ -118,6 +121,7 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
         LogScrollStyle::ErrorsOnly,
         None,
     );
+    matching.len()
 }
 
 enum LogScrollStyle {

@@ -1,13 +1,16 @@
+use std::collections::VecDeque;
+
 use eframe::egui;
 
 use crate::app::{App, InsightStatus};
 use crate::theme;
 use crate::ui_elements;
 
-pub fn insight_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) {
+/// Draws the insight body and returns the number of text lines in the reply area.
+pub fn insight_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usize {
     if app.selected_serial.is_none() {
         ui_elements::panel_loading(ui);
-        return;
+        return 0;
     }
 
     ui_elements::panel_body(ui, theme::colors::INSIGHT_BODY, |ui| {
@@ -20,7 +23,7 @@ pub fn insight_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) {
                     ui.label("...");
                 }
             }
-            return;
+            return 0;
         }
 
         egui::ScrollArea::vertical()
@@ -38,5 +41,14 @@ pub fn insight_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) {
                     ui.label(reply.as_str());
                 }
             });
-    });
+        insight_reply_line_count(&app.insight.replies)
+    })
+}
+
+/// Counts newline-separated lines across insight replies.
+fn insight_reply_line_count(replies: &VecDeque<String>) -> usize {
+    replies
+        .iter()
+        .map(|reply| reply.lines().count().max(1))
+        .sum()
 }

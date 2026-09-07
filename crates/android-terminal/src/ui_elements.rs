@@ -236,19 +236,19 @@ pub fn panel_with_header_actions<R>(
         .inner
 }
 
-/// Like [`panel_with_header_actions`], with a bottom Stream footer inside the card.
+/// Like [`panel_with_header_actions`], with a bottom footer inside the card.
 ///
-/// `add_contents` receives the current auto-scroll flag for stick-to-bottom; the footer
-/// is the only control that toggles it. `show_timestamps` adds a Timestamp on/off control
-/// to the left of Stream when `Some`.
-pub fn panel_with_footer<R>(
+/// `add_contents` receives the current auto-scroll flag and returns the number of lines
+/// in the body text area. The footer is the only control that toggles auto-scroll.
+/// `show_timestamps` adds a Timestamp on/off control to the left of Stream when `Some`.
+pub fn panel_with_footer(
     ui: &mut Ui,
     title: impl Into<egui::RichText>,
     add_header_actions: impl FnOnce(&mut Ui),
-    add_contents: impl FnOnce(&mut Ui, bool) -> R,
+    add_contents: impl FnOnce(&mut Ui, bool) -> usize,
     auto_scroll: &mut bool,
     show_timestamps: Option<&mut bool>,
-) -> R {
+) {
     // Same structure as `Frame::begin`/`end`, but always paint/allocate the tile-sized
     // content rect. Overflowing body content must not push the bottom stroke outside the
     // pane clip (that drops the bottom border).
@@ -283,7 +283,7 @@ pub fn panel_with_footer<R>(
         egui::pos2(max_rect.right(), footer_rect.top()),
     );
 
-    let result = content_ui
+    let line_count = content_ui
         .allocate_new_ui(egui::UiBuilder::new().max_rect(body_rect), |ui| {
             ui.set_clip_rect(ui.clip_rect().intersect(body_rect));
             add_contents(ui, *auto_scroll)
@@ -291,7 +291,7 @@ pub fn panel_with_footer<R>(
         .inner;
 
     content_ui.allocate_new_ui(egui::UiBuilder::new().max_rect(footer_rect), |ui| {
-        panel_footer(ui, auto_scroll, show_timestamps);
+        panel_footer(ui, auto_scroll, show_timestamps, line_count);
     });
 
     let widget_rect = frame.widget_rect(content_rect);
@@ -300,8 +300,6 @@ pub fn panel_with_footer<R>(
             .set(where_to_put_background, frame.paint(content_rect));
     }
     ui.allocate_rect(frame.outer_rect(content_rect), egui::Sense::hover());
-
-    result
 }
 
 /// Vertical padding above and below the footer status text.
@@ -313,17 +311,20 @@ fn panel_footer_height(ui: &Ui) -> f32 {
     text + 2.0 * FOOTER_PAD_Y
 }
 
-/// Extra inset from the footer’s right edge for the Stream label.
+/// Extra inset from the footer’s left and right edges for status text.
 const FOOTER_LABEL_INSET_X: f32 = 8.0;
 
-/// Downward shift of the Stream label inside the footer.
+/// Downward shift of footer labels inside the bar.
 const FOOTER_LABEL_OFFSET_Y: f32 = 3.0;
 
-/// Draws the panel footer bar: top hairline, then Stream and optional Timestamp controls.
+/// Draws the panel footer: left-aligned line count, right-aligned Stream and optional Timestamp.
+///
+/// Omits Lines first, then Timestamp, when they do not fit beside Stream.
 pub fn panel_footer(
     ui: &mut Ui,
     auto_scroll: &mut bool,
     show_timestamps: Option<&mut bool>,
+    line_count: usize,
 ) {
     let rect = ui.max_rect();
     ui.allocate_rect(rect, egui::Sense::hover());
@@ -339,9 +340,20 @@ pub fn panel_footer(
     } else {
         "Stream: Paused"
     };
+    let timestamp_label = show_timestamps.as_ref().map(|show| {
+        if **show {
+            "Timestamp: On"
+        } else {
+            "Timestamp: Off"
+        }
+    });
+    let lines_label = format!("Lines: {line_count}");
 
     let content_rect = egui::Rect::from_min_max(
-        egui::pos2(rect.left(), rect.top() + FOOTER_LABEL_OFFSET_Y),
+        egui::pos2(
+            rect.left() + FOOTER_LABEL_INSET_X,
+            rect.top() + FOOTER_LABEL_OFFSET_Y,
+        ),
         egui::pos2(
             rect.right() - FOOTER_LABEL_INSET_X,
             rect.bottom() + FOOTER_LABEL_OFFSET_Y,
@@ -349,19 +361,56 @@ pub fn panel_footer(
     );
 
     ui.allocate_new_ui(egui::UiBuilder::new().max_rect(content_rect), |ui| {
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            footer_toggle(ui, stream_label, "Toggle logcat updates", auto_scroll);
-            if let Some(show_timestamps) = show_timestamps {
-                ui.add_space(ui.spacing().item_spacing.x);
-                let timestamp_label = if *show_timestamps {
-                    "Timestamp: on"
-                } else {
-                    "Timestamp: off"
-                };
-                footer_toggle(ui, timestamp_label, "Toggle timestamps", show_timestamps);
+        let gap = ui.spacing().item_spacing.x;
+        let timestamp_w = timestamp_label.map(|label| footer_label_width(ui, label));
+        let lines_w = footer_label_width(ui, &lines_label);
+
+        let mut remaining = ui.max_rect().width() - footer_label_width(ui, stream_label);
+        let show_timestamp = timestamp_w.is_some_and(|w| remaining >= gap + w);
+        if show_timestamp {
+            if let Some(w) = timestamp_w {
+                remaining -= gap + w;
             }
+        }
+        let show_lines = remaining >= gap + lines_w;
+
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+            if show_lines {
+                ui.label(
+                    egui::RichText::new(lines_label)
+                        .small()
+                        .color(colors::FOOTER_TEXT),
+                );
+            }
+            ui.allocate_ui_with_layout(
+                egui::vec2(ui.available_width(), ui.available_height()),
+                egui::Layout::right_to_left(egui::Align::Center),
+                |ui| {
+                    footer_toggle(ui, stream_label, "Toggle logcat updates", auto_scroll);
+                    if show_timestamp {
+                        if let (Some(label), Some(show_timestamps)) =
+                            (timestamp_label, show_timestamps)
+                        {
+                            footer_toggle(ui, label, "Toggle timestamps", show_timestamps);
+                        }
+                    }
+                },
+            );
         });
     });
+}
+
+/// Unwrapped width of footer status text in the Small style.
+fn footer_label_width(ui: &Ui, text: &str) -> f32 {
+    egui::WidgetText::from(egui::RichText::new(text).small().color(colors::FOOTER_TEXT))
+        .into_galley(
+            ui,
+            Some(egui::TextWrapMode::Extend),
+            f32::INFINITY,
+            TextStyle::Small,
+        )
+        .size()
+        .x
 }
 
 fn footer_toggle(ui: &mut Ui, label: &str, hover: &str, flag: &mut bool) {
