@@ -40,7 +40,7 @@ The model replies with a one-line verdict (`HEALTHY` / `DEGRADING` / `FAILING`),
 
 No request is sent until `AI_PROVIDER_API_KEY` is set.
 
-## Configure an AI provider
+## Configure AI provider
 
 Settings are read from the process environment. On startup the app also loads `crates/android-terminal/.env` if that file exists.
 
@@ -58,9 +58,44 @@ AI_PROVIDER_BASE_URL=https://api.deepseek.com
 AI_PROVIDER_MODEL=deepseek-v4-pro
 ```
 
-Any provider that implements the [OpenAI Chat Completions](https://platform.openai.com/docs/api-reference/chat/create) HTTP API works: set `AI_PROVIDER_BASE_URL` to the origin that serves `POST /chat/completions` (include `/v1` if that is part of the path), `AI_PROVIDER_API_KEY` to that provider’s bearer token, and `AI_PROVIDER_MODEL` to a model id it accepts.
+The provider must accept [OpenAI Chat Completions](https://platform.openai.com/docs/api-reference/chat/create): `POST {AI_PROVIDER_BASE_URL}/chat/completions` (include `/v1` in the base URL if that is part of the path).
 
-The request is Chat Completions JSON: `Authorization: Bearer …`, body fields `model`, `messages` (`system` / `user`), `temperature`, `max_tokens`, `stream: false`. The assistant text is read from `choices[0].message.content`. The body also sends `"thinking": { "type": "disabled" }` (DeepSeek); other hosts typically ignore unknown fields.
+The AI needs to follow this format:
+
+```http
+POST /chat/completions
+Authorization: Bearer ${AI_PROVIDER_API_KEY}
+Content-Type: application/json
+
+{
+  "model": "${AI_PROVIDER_MODEL}",
+  "temperature": 0.2,
+  "max_tokens": 350,
+  "stream": false,
+  "thinking": { "type": "disabled" },
+  "messages": [
+    { "role": "system", "content": "..." },
+    { "role": "user", "content": "<error snapshot JSON>" }
+  ]
+}
+```
+
+`"thinking"` is sent for DeepSeek; other hosts typically ignore unknown fields.
+
+Response should include assistant text at `choices[0].message.content`:
+
+```json
+{
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "FAILING\nTop issues: ...\nNext checks: ..."
+      }
+    }
+  ]
+}
+```
 
 ## Prerequisites
 
