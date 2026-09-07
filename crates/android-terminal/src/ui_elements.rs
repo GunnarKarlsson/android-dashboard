@@ -264,7 +264,7 @@ fn panel_header(
             let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
             image.paint_at(ui, rect.translate(egui::vec2(0.0, HEADER_ICON_OFFSET_Y)));
         }
-        ui.heading(title);
+        ui.heading(title.into().color(colors::HEADER_ICON));
         add_header_actions(ui);
     });
 }
