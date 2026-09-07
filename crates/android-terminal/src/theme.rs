@@ -134,9 +134,9 @@ pub mod icons {
         egui::include_image!("../assets/icons/errors.svg")
     }
 
-    /// Circle exclamation icon.
+    /// Cat icon.
     pub fn logcat() -> egui::ImageSource<'static> {
-        egui::include_image!("../assets/icons/logcat.svg")
+        egui::include_image!("../assets/icons/cat.svg")
     }
 
     /// Microchip icon.
