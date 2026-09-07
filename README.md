@@ -58,9 +58,7 @@ AI_PROVIDER_BASE_URL=https://api.deepseek.com
 AI_PROVIDER_MODEL=deepseek-v4-pro
 ```
 
-The provider must accept [OpenAI Chat Completions](https://platform.openai.com/docs/api-reference/chat/create): `POST {AI_PROVIDER_BASE_URL}/chat/completions` (include `/v1` in the base URL if that is part of the path).
-
-The AI needs to follow this format:
+The provider must accept [OpenAI Chat Completions](https://platform.openai.com/docs/api-reference/chat/create): `POST {AI_PROVIDER_BASE_URL}/chat/completions` (include `/v1` in the base URL if that is part of the path):
 
 ```http
 POST /chat/completions
@@ -82,7 +80,7 @@ Content-Type: application/json
 
 `"thinking"` is sent for DeepSeek; other hosts typically ignore unknown fields.
 
-Response should include assistant text at `choices[0].message.content`:
+Response:
 
 ```json
 {
