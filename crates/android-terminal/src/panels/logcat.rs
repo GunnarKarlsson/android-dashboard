@@ -89,6 +89,28 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
         .on_hover_text("Filter error lines by text");
     });
 
+    ui_elements::filter_row(ui, |ui| {
+        ui.label("Tag:");
+        let response = ui
+            .add(
+                egui::TextEdit::singleline(&mut app.error_logcat_tag_input)
+                    .hint_text("Add tag…")
+                    .desired_width(ui.available_width())
+                    .id_salt("error_logcat_tag_input"),
+            )
+            .on_hover_text("Press Enter to add a tag filter");
+        if response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
+            app.add_error_logcat_tag();
+            response.request_focus();
+        }
+    });
+
+    let mut remove_tag_index = None;
+    ui_elements::tag_filter_row(ui, &app.error_logcat_tag_filters, &mut remove_tag_index);
+    if let Some(index) = remove_tag_index {
+        app.remove_error_logcat_tag(index);
+    }
+
     if app.selected_serial.is_none() {
         ui_elements::panel_loading(ui);
         return 0;
@@ -109,17 +131,19 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
     }
 
     let filter = app.error_logcat_filter.clone();
-    let matching = filtered_line_indices_simple(&app.error_lines, &filter);
+    let tag_filters = app.error_logcat_tag_filters.clone();
+    let show_timestamps = app.error_show_timestamps;
+    let matching = filtered_line_indices(&app.error_lines, &filter, &tag_filters, show_timestamps);
 
     show_log_scroll(
         ui,
         &app.error_lines,
         &matching,
         auto_scroll,
-        app.error_show_timestamps,
+        show_timestamps,
         egui::Id::new("logcat_errors_scroll"),
         LogScrollStyle::ErrorsOnly,
-        None,
+        Some(&tag_filters),
     );
     matching.len()
 }
@@ -148,21 +172,6 @@ fn filtered_line_indices(
             }
             line.matches_tag_filters(tag_filters, show_timestamps)
         })
-        .map(|(index, _)| index)
-        .collect()
-}
-
-fn filtered_line_indices_simple(lines: &VecDeque<CachedLogLine>, filter: &str) -> Vec<usize> {
-    let filter = filter.trim();
-    if filter.is_empty() {
-        return (0..lines.len()).collect();
-    }
-
-    let filter_lower = filter.to_lowercase();
-    lines
-        .iter()
-        .enumerate()
-        .filter(|(_, line)| line.matches_filter(&filter_lower))
         .map(|(index, _)| index)
         .collect()
 }

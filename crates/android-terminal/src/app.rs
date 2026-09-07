@@ -68,6 +68,8 @@ pub struct App {
     pub error_logcat_filter: String,
     pub logcat_tag_input: String,
     pub logcat_tag_filters: Vec<LogcatTagFilter>,
+    pub error_logcat_tag_input: String,
+    pub error_logcat_tag_filters: Vec<LogcatTagFilter>,
     pub insight: InsightState,
     insight_rx: Option<Receiver<InsightUpdate>>,
     insight_serial: Option<String>,
@@ -261,6 +263,8 @@ impl App {
             error_logcat_filter: String::new(),
             logcat_tag_input: String::new(),
             logcat_tag_filters: Vec::new(),
+            error_logcat_tag_input: String::new(),
+            error_logcat_tag_filters: Vec::new(),
             insight: InsightState::default(),
             insight_rx: None,
             insight_serial: None,
@@ -272,31 +276,22 @@ impl App {
     }
 
     pub fn add_logcat_tag(&mut self) {
-        let tag = self.logcat_tag_input.trim().to_string();
-        if tag.is_empty() {
-            return;
-        }
-
-        if self
-            .logcat_tag_filters
-            .iter()
-            .any(|filter| filter.tag.eq_ignore_ascii_case(&tag))
-        {
-            self.logcat_tag_input.clear();
-            return;
-        }
-
-        self.logcat_tag_filters.push(LogcatTagFilter {
-            tag: tag.clone(),
-            color_index: ui_elements::tag_color_index(&tag),
-        });
-        self.logcat_tag_input.clear();
+        add_tag_filter(&mut self.logcat_tag_input, &mut self.logcat_tag_filters);
     }
 
     pub fn remove_logcat_tag(&mut self, index: usize) {
-        if index < self.logcat_tag_filters.len() {
-            self.logcat_tag_filters.remove(index);
-        }
+        remove_tag_filter(&mut self.logcat_tag_filters, index);
+    }
+
+    pub fn add_error_logcat_tag(&mut self) {
+        add_tag_filter(
+            &mut self.error_logcat_tag_input,
+            &mut self.error_logcat_tag_filters,
+        );
+    }
+
+    pub fn remove_error_logcat_tag(&mut self, index: usize) {
+        remove_tag_filter(&mut self.error_logcat_tag_filters, index);
     }
 
     pub fn refresh_devices(&mut self) {
@@ -425,6 +420,8 @@ impl App {
         self.error_logcat_filter.clear();
         self.logcat_tag_input.clear();
         self.logcat_tag_filters.clear();
+        self.error_logcat_tag_input.clear();
+        self.error_logcat_tag_filters.clear();
         self.network_stats = None;
         self.network_error = None;
         self.protocol_stats = None;
@@ -910,6 +907,35 @@ impl App {
         if self.selected_serial.is_some() {
             ctx.request_repaint_after(REPAINT_INTERVAL);
         }
+    }
+}
+
+/// Adds a trimmed tag filter if it is non-empty and not already present (case-insensitive).
+fn add_tag_filter(input: &mut String, filters: &mut Vec<LogcatTagFilter>) {
+    let tag = input.trim().to_string();
+    if tag.is_empty() {
+        return;
+    }
+
+    if filters
+        .iter()
+        .any(|filter| filter.tag.eq_ignore_ascii_case(&tag))
+    {
+        input.clear();
+        return;
+    }
+
+    filters.push(LogcatTagFilter {
+        tag: tag.clone(),
+        color_index: ui_elements::tag_color_index(&tag),
+    });
+    input.clear();
+}
+
+/// Removes the tag filter at `index` if it exists.
+fn remove_tag_filter(filters: &mut Vec<LogcatTagFilter>, index: usize) {
+    if index < filters.len() {
+        filters.remove(index);
     }
 }
 
