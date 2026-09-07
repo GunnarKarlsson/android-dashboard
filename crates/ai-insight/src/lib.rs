@@ -1,5 +1,3 @@
-//! Cluster, redact, and comment on Android log snapshots.
-
 mod client;
 mod config;
 mod fingerprint;
