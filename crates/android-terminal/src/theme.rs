@@ -111,8 +111,6 @@ pub const TITLE_BAR_HEIGHT: f32 = 28.0;
 pub mod icons {
     /// Circular arrows — `nf-md-refresh`.
     pub const REFRESH: &str = "\u{f0450}";
-    /// Clock — `nf-md-clock`.
-    pub const CLOCK: &str = "\u{f0954}";
     /// Two horizontal bars — `nf-md-view-headline`.
     pub const LINE_SPACING: &str = "\u{f0571}";
 }

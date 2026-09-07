@@ -246,16 +246,18 @@ pub fn panel_with_header_actions<R>(
         .inner
 }
 
-/// Like [`panel_with_header_actions`], with a bottom Auto-scroll footer inside the card.
+/// Like [`panel_with_header_actions`], with a bottom Stream footer inside the card.
 ///
 /// `add_contents` receives the current auto-scroll flag for stick-to-bottom; the footer
-/// is the only control that toggles it.
+/// is the only control that toggles it. `show_timestamps` adds a Timestamp on/off control
+/// to the left of Stream when `Some`.
 pub fn panel_with_footer<R>(
     ui: &mut Ui,
     title: impl Into<egui::RichText>,
     add_header_actions: impl FnOnce(&mut Ui),
     add_contents: impl FnOnce(&mut Ui, bool) -> R,
     auto_scroll: &mut bool,
+    show_timestamps: Option<&mut bool>,
 ) -> R {
     // Same structure as `Frame::begin`/`end`, but always paint/allocate the tile-sized
     // content rect. Overflowing body content must not push the bottom stroke outside the
@@ -299,7 +301,7 @@ pub fn panel_with_footer<R>(
         .inner;
 
     content_ui.allocate_new_ui(egui::UiBuilder::new().max_rect(footer_rect), |ui| {
-        panel_footer(ui, auto_scroll);
+        panel_footer(ui, auto_scroll, show_timestamps);
     });
 
     let widget_rect = frame.widget_rect(content_rect);
@@ -327,8 +329,12 @@ const FOOTER_LABEL_INSET_X: f32 = 8.0;
 /// Downward shift of the Stream label inside the footer.
 const FOOTER_LABEL_OFFSET_Y: f32 = 3.0;
 
-/// Draws the panel footer bar: top hairline, then a clickable Stream Active/Paused control.
-pub fn panel_footer(ui: &mut Ui, auto_scroll: &mut bool) {
+/// Draws the panel footer bar: top hairline, then Stream and optional Timestamp controls.
+pub fn panel_footer(
+    ui: &mut Ui,
+    auto_scroll: &mut bool,
+    show_timestamps: Option<&mut bool>,
+) {
     let rect = ui.max_rect();
     ui.allocate_rect(rect, egui::Sense::hover());
 
@@ -338,7 +344,7 @@ pub fn panel_footer(ui: &mut Ui, auto_scroll: &mut bool) {
         egui::Stroke::new(1.0, colors::PANEL_SEPARATOR),
     );
 
-    let label = if *auto_scroll {
+    let stream_label = if *auto_scroll {
         "Stream: Active"
     } else {
         "Stream: Paused"
@@ -354,20 +360,33 @@ pub fn panel_footer(ui: &mut Ui, auto_scroll: &mut bool) {
 
     ui.allocate_new_ui(egui::UiBuilder::new().max_rect(content_rect), |ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            let response = ui
-                .add(
-                    egui::Label::new(
-                        egui::RichText::new(label)
-                            .small()
-                            .color(colors::FOOTER_TEXT),
-                    )
-                    .sense(egui::Sense::click()),
-                )
-                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                .on_hover_text("Toggle logcat updates");
-            if response.clicked() {
-                *auto_scroll = !*auto_scroll;
+            footer_toggle(ui, stream_label, "Toggle logcat updates", auto_scroll);
+            if let Some(show_timestamps) = show_timestamps {
+                ui.add_space(ui.spacing().item_spacing.x);
+                let timestamp_label = if *show_timestamps {
+                    "Timestamp: on"
+                } else {
+                    "Timestamp: off"
+                };
+                footer_toggle(ui, timestamp_label, "Toggle timestamps", show_timestamps);
             }
         });
     });
+}
+
+fn footer_toggle(ui: &mut Ui, label: &str, hover: &str, flag: &mut bool) {
+    let response = ui
+        .add(
+            egui::Label::new(
+                egui::RichText::new(label)
+                    .small()
+                    .color(colors::FOOTER_TEXT),
+            )
+            .sense(egui::Sense::click()),
+        )
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
+        .on_hover_text(hover);
+    if response.clicked() {
+        *flag = !*flag;
+    }
 }

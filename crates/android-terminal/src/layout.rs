@@ -155,12 +155,13 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                     ui,
                     pane.title(),
                     |ui| {
-                        logcat_header_toggles(ui, &mut show_timestamps, &mut line_spacing);
+                        logcat_header_toggles(ui, &mut line_spacing);
                     },
                     |ui, auto_scroll| {
                         panels::logcat::logcat_all_panel(ui, self.app, auto_scroll)
                     },
                     &mut auto_scroll,
+                    Some(&mut show_timestamps),
                 );
                 self.app.logcat_show_timestamps = show_timestamps;
                 self.app.logcat_line_spacing = line_spacing;
@@ -176,6 +177,7 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                         panels::insight::insight_panel(ui, self.app, auto_scroll)
                     },
                     &mut auto_scroll,
+                    None,
                 );
                 self.app.insight_auto_update_feed = auto_scroll;
             }
@@ -187,12 +189,13 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                     ui,
                     pane.title(),
                     |ui| {
-                        logcat_header_toggles(ui, &mut show_timestamps, &mut line_spacing);
+                        logcat_header_toggles(ui, &mut line_spacing);
                     },
                     |ui, auto_scroll| {
                         panels::logcat::logcat_errors_panel(ui, self.app, auto_scroll)
                     },
                     &mut auto_scroll,
+                    Some(&mut show_timestamps),
                 );
                 self.app.error_show_timestamps = show_timestamps;
                 self.app.error_line_spacing = line_spacing;
@@ -219,10 +222,7 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
     }
 }
 
-fn logcat_header_toggles(ui: &mut egui::Ui, show_timestamps: &mut bool, line_spacing: &mut bool) {
-    if ui_elements::icon_toggle(ui, theme::icons::CLOCK, *show_timestamps).clicked() {
-        *show_timestamps = !*show_timestamps;
-    }
+fn logcat_header_toggles(ui: &mut egui::Ui, line_spacing: &mut bool) {
     if ui_elements::icon_toggle(ui, theme::icons::LINE_SPACING, *line_spacing).clicked() {
         *line_spacing = !*line_spacing;
     }
