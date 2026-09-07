@@ -1,4 +1,4 @@
-//! Cluster, redact, and (later) comment on Android HUD snapshots.
+//! Cluster, redact, and comment on Android log snapshots.
 
 mod client;
 mod config;

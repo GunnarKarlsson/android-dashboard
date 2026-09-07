@@ -150,7 +150,7 @@ pub mod icons {
     }
 }
 
-/// Apply app-wide egui styling. Called once at startup from the eframe creation hook.
+/// Apply app-wide egui styling.
 pub fn configure(ctx: &Context) {
     egui_extras::install_image_loaders(ctx);
     install_fonts(ctx);
