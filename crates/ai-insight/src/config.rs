@@ -1,9 +1,9 @@
-//! DeepSeek settings from the process environment.
+//! Chat Completions settings from the process environment.
 
 const DEFAULT_BASE_URL: &str = "https://api.deepseek.com";
 const DEFAULT_MODEL: &str = "deepseek-v4-pro";
 
-/// DeepSeek endpoint, model, and API key for one request.
+/// Chat Completions endpoint, model, and API key for one request.
 #[derive(Debug, Clone)]
 pub struct InsightConfig {
     pub api_key: String,
@@ -12,13 +12,13 @@ pub struct InsightConfig {
 }
 
 impl InsightConfig {
-    /// Reads `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, and `DEEPSEEK_MODEL` from the environment.
+    /// Reads `AI_PROVIDER_API_KEY`, `AI_PROVIDER_BASE_URL`, and `AI_PROVIDER_MODEL` from the environment.
     pub fn from_env() -> Self {
         Self {
-            api_key: std::env::var("DEEPSEEK_API_KEY").unwrap_or_default(),
-            base_url: std::env::var("DEEPSEEK_BASE_URL")
+            api_key: std::env::var("AI_PROVIDER_API_KEY").unwrap_or_default(),
+            base_url: std::env::var("AI_PROVIDER_BASE_URL")
                 .unwrap_or_else(|_| DEFAULT_BASE_URL.into()),
-            model: std::env::var("DEEPSEEK_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.into()),
+            model: std::env::var("AI_PROVIDER_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.into()),
         }
     }
 

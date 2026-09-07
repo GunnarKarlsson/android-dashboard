@@ -6,7 +6,7 @@ use crate::client::complete;
 use crate::config::InsightConfig;
 use crate::reduce::InsightSnapshot;
 
-/// Result of one background DeepSeek call.
+/// Result of one background Chat Completions call.
 #[derive(Debug, Clone)]
 pub enum InsightUpdate {
     Started {

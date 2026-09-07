@@ -17,7 +17,7 @@ Max 120 words. No preamble.";
 
 #[derive(Debug, thiserror::Error)]
 pub enum InsightError {
-    #[error("DEEPSEEK_API_KEY is not set")]
+    #[error("AI_PROVIDER_API_KEY is not set")]
     MissingApiKey,
     #[error("HTTP {status}: {body}")]
     Http { status: u16, body: String },
@@ -27,7 +27,7 @@ pub enum InsightError {
     EmptyReply,
 }
 
-/// POSTs the snapshot to DeepSeek chat completions and returns the assistant text.
+/// POSTs the snapshot to the configured Chat Completions endpoint and returns the assistant text.
 ///
 /// Logs host, model, snapshot JSON, and the response body. Does not log the API key.
 pub fn complete(
@@ -35,7 +35,7 @@ pub fn complete(
     snapshot: &InsightSnapshot,
 ) -> Result<String, InsightError> {
     if !config.has_api_key() {
-        tracing::warn!("insight request skipped: DEEPSEEK_API_KEY is not set");
+        tracing::warn!("insight request skipped: AI_PROVIDER_API_KEY is not set");
         return Err(InsightError::MissingApiKey);
     }
 
