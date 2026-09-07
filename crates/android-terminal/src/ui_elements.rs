@@ -1,4 +1,6 @@
-//! Shared UI widgets: panel cards, footers, icon buttons, filter rows.
+//! Shared UI widgets: panel cards, footers, filter rows.
+
+use std::time::Instant;
 
 use eframe::egui::{self, Context, FontFamily, FontId, TextStyle, Ui};
 
@@ -399,15 +401,39 @@ pub fn panel_footer(
     });
 }
 
-/// Footer with a right-aligned Refresh control. Returns `true` when Refresh is clicked.
-pub fn devices_footer(ui: &mut Ui) -> bool {
+/// Footer with last-refresh status and a right-aligned Refresh control.
+/// Returns `true` when Refresh is clicked.
+pub fn devices_footer(ui: &mut Ui, refreshed_at: Option<Instant>) -> bool {
     let mut refresh = false;
     footer_bar(ui, |ui| {
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            refresh = footer_action(ui, "Refresh", "Re-run adb devices");
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+            if let Some(at) = refreshed_at {
+                ui.label(
+                    egui::RichText::new(refresh_age_label(at))
+                        .small()
+                        .color(colors::FOOTER_TEXT),
+                );
+            }
+            ui.allocate_ui_with_layout(
+                egui::vec2(ui.available_width(), ui.available_height()),
+                egui::Layout::right_to_left(egui::Align::Center),
+                |ui| {
+                    refresh = footer_action(ui, "Refresh", "Re-run adb devices");
+                },
+            );
         });
     });
     refresh
+}
+
+fn refresh_age_label(at: Instant) -> String {
+    let secs = at.elapsed().as_secs();
+    match secs {
+        0 => "Updated just now".to_string(),
+        1 => "Updated 1s ago".to_string(),
+        s if s < 60 => format!("Updated {s}s ago"),
+        s => format!("Updated {}m ago", s / 60),
+    }
 }
 
 /// Separator and inset content area shared by panel footers.

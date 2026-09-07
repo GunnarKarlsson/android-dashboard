@@ -23,6 +23,7 @@ pub struct App {
     pub adb_error: Option<String>,
     pub devices: Vec<DeviceInfo>,
     pub list_error: Option<String>,
+    pub devices_refreshed_at: Option<Instant>,
     pub selected_serial: Option<String>,
     pub logcat_rx: Option<Receiver<LogEntry>>,
     pub logcat_stream: Option<LogcatStream>,
@@ -206,10 +207,16 @@ impl App {
         devices: Vec<DeviceInfo>,
         list_error: Option<String>,
     ) -> Self {
+        let devices_refreshed_at = if adb_error.is_none() {
+            Some(Instant::now())
+        } else {
+            None
+        };
         let mut app = App {
             adb_error,
             devices,
             list_error,
+            devices_refreshed_at,
             selected_serial: None,
             logcat_rx: None,
             logcat_stream: None,
@@ -293,6 +300,7 @@ impl App {
 
     pub fn refresh_devices(&mut self) {
         self.list_error = None;
+        self.devices_refreshed_at = Some(Instant::now());
         match Adb::list_devices() {
             Ok(devices) => {
                 self.devices = devices;

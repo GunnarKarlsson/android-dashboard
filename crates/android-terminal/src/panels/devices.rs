@@ -2,10 +2,12 @@ use adb_client::DeviceState;
 use eframe::egui;
 
 use crate::app::App;
+use crate::theme;
 use crate::ui_elements;
 
 pub fn devices_panel(ui: &mut egui::Ui, app: &mut App, icon: Option<egui::ImageSource<'static>>) {
     let mut refresh = false;
+    let refreshed_at = app.devices_refreshed_at;
     ui_elements::panel_with_custom_footer(
         ui,
         icon,
@@ -15,7 +17,7 @@ pub fn devices_panel(ui: &mut egui::Ui, app: &mut App, icon: Option<egui::ImageS
             show_devices_body(ui, app);
         },
         |ui| {
-            refresh = ui_elements::devices_footer(ui);
+            refresh = ui_elements::devices_footer(ui, refreshed_at);
         },
     );
     if refresh {
@@ -52,7 +54,18 @@ fn show_devices_body(ui: &mut egui::Ui, app: &mut App) {
                     let label = format!("{}\n{}", device.model, device.serial);
 
                     if device.state == DeviceState::Device {
-                        if ui.selectable_label(selected, label).clicked() && !selected {
+                        let color = if selected {
+                            theme::colors::OFF_WHITE
+                        } else {
+                            theme::colors::HEADER_ICON
+                        };
+                        let response = ui
+                            .add(
+                                egui::Label::new(egui::RichText::new(label).color(color))
+                                    .sense(egui::Sense::click()),
+                            )
+                            .on_hover_cursor(egui::CursorIcon::PointingHand);
+                        if response.clicked() && !selected {
                             let serial = app.devices[index].serial.clone();
                             app.select_device(serial);
                         }
