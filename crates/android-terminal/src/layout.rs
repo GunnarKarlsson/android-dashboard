@@ -82,7 +82,7 @@ pub fn create_default_tree() -> Tree<PanelId> {
     set_linear_shares(
         &mut tiles,
         left_column,
-        &[(devices, 2.0), (gauges, 1.5), (system_stats, 1.5)],
+        &[(devices, 1.0), (gauges, 1.5), (system_stats, 2.5)],
     );
     set_linear_shares(&mut tiles, gauges, &[(ram, 1.0), (storage, 1.0)]);
     set_linear_shares(
