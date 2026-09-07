@@ -192,11 +192,12 @@ fn show_log_scroll(
 
     // `stick_to_bottom` is egui's API for terminal/log follow. `animated(false)` keeps
     // follow updates from lerping through the buffer when content grows.
-    egui::ScrollArea::vertical()
+    egui::ScrollArea::both()
         .id_salt(scroll_id)
         .stick_to_bottom(stick_to_bottom)
         .animated(false)
         .auto_shrink([false, false])
+        .max_height(ui.available_height())
         .show_rows(ui, row_height, total_rows, |ui, row_range| {
             for row in row_range {
                 let line = &lines[matching[row]];
@@ -207,18 +208,11 @@ fn show_log_scroll(
                 let text = line.display(show_timestamps);
                 if let Some(tag_filters) = tag_filters {
                     let mut job = build_highlight_job(ui, text, color, tag_filters);
-                    job.wrap = egui::text::TextWrapping {
-                        max_rows: 1,
-                        break_anywhere: true,
-                        max_width: f32::INFINITY,
-                        overflow_character: None,
-                    };
-                    ui.label(job);
+                    job.wrap.max_rows = 1;
+                    job.wrap.overflow_character = None;
+                    ui.add(egui::Label::new(job).extend());
                 } else {
-                    ui.add(
-                        egui::Label::new(egui::RichText::new(text).color(color))
-                            .wrap_mode(egui::TextWrapMode::Extend),
-                    );
+                    ui.add(egui::Label::new(egui::RichText::new(text).color(color)).extend());
                 }
             }
         });
