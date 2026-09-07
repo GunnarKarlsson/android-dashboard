@@ -149,14 +149,11 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
             }
             PanelId::LogcatAll => {
                 let mut show_timestamps = self.app.logcat_show_timestamps;
-                let mut line_spacing = self.app.logcat_line_spacing;
                 let mut auto_scroll = self.app.auto_update_feed;
                 ui_elements::panel_with_footer(
                     ui,
                     pane.title(),
-                    |ui| {
-                        logcat_header_toggles(ui, &mut line_spacing);
-                    },
+                    |_| {},
                     |ui, auto_scroll| {
                         panels::logcat::logcat_all_panel(ui, self.app, auto_scroll)
                     },
@@ -164,7 +161,6 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                     Some(&mut show_timestamps),
                 );
                 self.app.logcat_show_timestamps = show_timestamps;
-                self.app.logcat_line_spacing = line_spacing;
                 self.app.auto_update_feed = auto_scroll;
             }
             PanelId::Insight => {
@@ -183,14 +179,11 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
             }
             PanelId::LogcatErrors => {
                 let mut show_timestamps = self.app.error_show_timestamps;
-                let mut line_spacing = self.app.error_line_spacing;
                 let mut auto_scroll = self.app.error_auto_update_feed;
                 ui_elements::panel_with_footer(
                     ui,
                     pane.title(),
-                    |ui| {
-                        logcat_header_toggles(ui, &mut line_spacing);
-                    },
+                    |_| {},
                     |ui, auto_scroll| {
                         panels::logcat::logcat_errors_panel(ui, self.app, auto_scroll)
                     },
@@ -198,7 +191,6 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                     Some(&mut show_timestamps),
                 );
                 self.app.error_show_timestamps = show_timestamps;
-                self.app.error_line_spacing = line_spacing;
                 self.app.error_auto_update_feed = auto_scroll;
             }
             PanelId::SystemStats => {
@@ -219,11 +211,5 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
         }
 
         UiResponse::None
-    }
-}
-
-fn logcat_header_toggles(ui: &mut egui::Ui, line_spacing: &mut bool) {
-    if ui_elements::icon_toggle(ui, theme::icons::LINE_SPACING, *line_spacing).clicked() {
-        *line_spacing = !*line_spacing;
     }
 }

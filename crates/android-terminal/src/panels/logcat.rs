@@ -69,7 +69,6 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) {
         &matching,
         auto_scroll,
         show_timestamps,
-        app.logcat_line_spacing,
         egui::Id::new("logcat_all_scroll"),
         LogScrollStyle::ByLevel,
         Some(&tag_filters),
@@ -115,7 +114,6 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
         &matching,
         auto_scroll,
         app.error_show_timestamps,
-        app.error_line_spacing,
         egui::Id::new("logcat_errors_scroll"),
         LogScrollStyle::ErrorsOnly,
         None,
@@ -171,18 +169,12 @@ fn show_log_scroll(
     matching: &[usize],
     stick_to_bottom: bool,
     show_timestamps: bool,
-    line_spacing: bool,
     scroll_id: egui::Id,
     style: LogScrollStyle,
     tag_filters: Option<&[LogcatTagFilter]>,
 ) {
     ui.style_mut().override_text_style = Some(egui::TextStyle::Monospace);
-    let text_height = ui.text_style_height(&egui::TextStyle::Monospace);
-    let row_height = if line_spacing {
-        text_height * 3.0
-    } else {
-        text_height
-    };
+    let row_height = ui.text_style_height(&egui::TextStyle::Monospace);
     let total_rows = matching.len();
 
     // `stick_to_bottom` is egui's API for terminal/log follow. `animated(false)` keeps

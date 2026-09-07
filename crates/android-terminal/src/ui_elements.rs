@@ -92,7 +92,7 @@ fn panel_padding(ui: &Ui) -> egui::Margin {
 
 const ICON_BUTTON_PADDING: f32 = 6.0;
 
-fn icon_button_widget(ui: &mut Ui, icon: &str, pressed: bool) -> egui::Response {
+fn icon_button_widget(ui: &mut Ui, icon: &str) -> egui::Response {
     let galley = egui::WidgetText::from(icon).into_galley(
         ui,
         Some(egui::TextWrapMode::Extend),
@@ -111,15 +111,10 @@ fn icon_button_widget(ui: &mut Ui, icon: &str, pressed: bool) -> egui::Response 
 
     if ui.is_rect_visible(rect) {
         let visuals = ui.style().interact(&response);
-        let fill = if pressed {
-            ui.visuals().selection.bg_fill
-        } else {
-            visuals.weak_bg_fill
-        };
         ui.painter().rect(
             rect,
             visuals.corner_radius,
-            fill,
+            visuals.weak_bg_fill,
             egui::Stroke::NONE,
             egui::StrokeKind::Inside,
         );
@@ -138,12 +133,7 @@ fn icon_button_widget(ui: &mut Ui, icon: &str, pressed: bool) -> egui::Response 
 
 /// Icon-only button.
 pub fn icon_button(ui: &mut Ui, icon: &str) -> egui::Response {
-    icon_button_widget(ui, icon, false)
-}
-
-/// Icon button that stays visually pressed while `pressed` is true.
-pub fn icon_toggle(ui: &mut Ui, icon: &str, pressed: bool) -> egui::Response {
-    icon_button_widget(ui, icon, pressed)
+    icon_button_widget(ui, icon)
 }
 
 /// Space below a toolbar row (filter, etc.), matching panel padding.
