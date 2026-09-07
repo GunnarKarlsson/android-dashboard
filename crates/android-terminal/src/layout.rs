@@ -33,6 +33,20 @@ impl PanelId {
             PanelId::Protocols => "App Traffic",
         }
     }
+
+    /// Returns the header icon for this panel.
+    fn icon(self) -> Option<egui::ImageSource<'static>> {
+        Some(match self {
+            PanelId::Ram => theme::icons::ram(),
+            PanelId::Storage | PanelId::SystemStats => theme::icons::disc(),
+            PanelId::Network => theme::icons::network(),
+            PanelId::LogcatErrors => theme::icons::errors(),
+            PanelId::LogcatAll => theme::icons::logcat(),
+            PanelId::Insight => theme::icons::insight(),
+            PanelId::Protocols => theme::icons::traffic(),
+            PanelId::Devices => theme::icons::device(),
+        })
+    }
 }
 
 pub fn create_default_tree() -> Tree<PanelId> {
@@ -70,11 +84,7 @@ pub fn create_default_tree() -> Tree<PanelId> {
         left_column,
         &[(devices, 2.0), (gauges, 1.5), (system_stats, 1.5)],
     );
-    set_linear_shares(
-        &mut tiles,
-        gauges,
-        &[(ram, 1.0), (storage, 1.0)],
-    );
+    set_linear_shares(&mut tiles, gauges, &[(ram, 1.0), (storage, 1.0)]);
     set_linear_shares(
         &mut tiles,
         middle_column,
@@ -135,15 +145,15 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
     fn pane_ui(&mut self, ui: &mut egui::Ui, _tile_id: TileId, pane: &mut PanelId) -> UiResponse {
         match pane {
             PanelId::Devices => {
-                panels::devices::devices_panel(ui, self.app);
+                panels::devices::devices_panel(ui, self.app, pane.icon());
             }
             PanelId::Ram => {
-                ui_elements::panel(ui, pane.title(), |ui| {
+                ui_elements::panel(ui, pane.icon(), pane.title(), |ui| {
                     panels::ram::ram_gauge_panel(ui, self.app)
                 });
             }
             PanelId::Storage => {
-                ui_elements::panel(ui, pane.title(), |ui| {
+                ui_elements::panel(ui, pane.icon(), pane.title(), |ui| {
                     panels::storage::storage_gauge_panel(ui, self.app)
                 });
             }
@@ -152,11 +162,10 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                 let mut auto_scroll = self.app.auto_update_feed;
                 ui_elements::panel_with_footer(
                     ui,
+                    pane.icon(),
                     pane.title(),
                     |_| {},
-                    |ui, auto_scroll| {
-                        panels::logcat::logcat_all_panel(ui, self.app, auto_scroll)
-                    },
+                    |ui, auto_scroll| panels::logcat::logcat_all_panel(ui, self.app, auto_scroll),
                     &mut auto_scroll,
                     Some(&mut show_timestamps),
                 );
@@ -167,11 +176,10 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                 let mut auto_scroll = self.app.insight_auto_update_feed;
                 ui_elements::panel_with_footer(
                     ui,
+                    pane.icon(),
                     pane.title(),
                     |_| {},
-                    |ui, auto_scroll| {
-                        panels::insight::insight_panel(ui, self.app, auto_scroll)
-                    },
+                    |ui, auto_scroll| panels::insight::insight_panel(ui, self.app, auto_scroll),
                     &mut auto_scroll,
                     None,
                 );
@@ -182,6 +190,7 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                 let mut auto_scroll = self.app.error_auto_update_feed;
                 ui_elements::panel_with_footer(
                     ui,
+                    pane.icon(),
                     pane.title(),
                     |_| {},
                     |ui, auto_scroll| {
@@ -194,17 +203,17 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                 self.app.error_auto_update_feed = auto_scroll;
             }
             PanelId::SystemStats => {
-                ui_elements::panel(ui, pane.title(), |ui| {
+                ui_elements::panel(ui, pane.icon(), pane.title(), |ui| {
                     panels::storage::storage_usage_panel(ui, self.app)
                 });
             }
             PanelId::Network => {
-                ui_elements::panel(ui, pane.title(), |ui| {
+                ui_elements::panel(ui, pane.icon(), pane.title(), |ui| {
                     panels::network::network_panel(ui, self.app)
                 });
             }
             PanelId::Protocols => {
-                ui_elements::panel(ui, pane.title(), |ui| {
+                ui_elements::panel(ui, pane.icon(), pane.title(), |ui| {
                     panels::traffic::protocols_panel(ui, self.app)
                 });
             }

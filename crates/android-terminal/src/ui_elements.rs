@@ -210,15 +210,17 @@ pub fn panel_loading(ui: &mut Ui) {
 /// One chrome for every panel: uniform padding on all four sides, title, then body.
 pub fn panel<R>(
     ui: &mut Ui,
+    icon: Option<egui::ImageSource<'static>>,
     title: impl Into<egui::RichText>,
     add_body: impl FnOnce(&mut Ui) -> R,
 ) -> R {
-    panel_with_header_actions(ui, title, |_| {}, add_body)
+    panel_with_header_actions(ui, icon, title, |_| {}, add_body)
 }
 
 /// Like [`panel`], with extra widgets on the header row (e.g. the devices refresh icon).
 pub fn panel_with_header_actions<R>(
     ui: &mut Ui,
+    icon: Option<egui::ImageSource<'static>>,
     title: impl Into<egui::RichText>,
     add_header_actions: impl FnOnce(&mut Ui),
     add_body: impl FnOnce(&mut Ui) -> R,
@@ -226,14 +228,45 @@ pub fn panel_with_header_actions<R>(
     panel_frame(ui)
         .show(ui, |ui| {
             ui.set_min_size(ui.max_rect().size());
-            ui.horizontal(|ui| {
-                ui.heading(title);
-                add_header_actions(ui);
-            });
+            panel_header(ui, icon, title, add_header_actions);
             panel_separator(ui);
             add_body(ui)
         })
         .inner
+}
+
+/// Downward shift of header icons relative to the title.
+const HEADER_ICON_OFFSET_Y: f32 = 2.0;
+
+/// Draws the panel title row: optional leading icon, heading, then extra header widgets.
+fn panel_header(
+    ui: &mut Ui,
+    icon: Option<egui::ImageSource<'static>>,
+    title: impl Into<egui::RichText>,
+    add_header_actions: impl FnOnce(&mut Ui),
+) {
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 6.0;
+        if let Some(icon) = icon {
+            let height = TextStyle::Heading.resolve(ui.style()).size;
+            let image = egui::Image::new(icon)
+                .fit_to_exact_size(egui::vec2(height * 1.5, height))
+                .max_height(height)
+                .show_loading_spinner(false)
+                .tint(colors::HEADER_ICON);
+            let size = image.calc_size(
+                ui.available_size(),
+                image
+                    .load_for_size(ui.ctx(), ui.available_size())
+                    .ok()
+                    .and_then(|texture| texture.size()),
+            );
+            let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+            image.paint_at(ui, rect.translate(egui::vec2(0.0, HEADER_ICON_OFFSET_Y)));
+        }
+        ui.heading(title);
+        add_header_actions(ui);
+    });
 }
 
 /// Like [`panel_with_header_actions`], with a bottom footer inside the card.
@@ -243,6 +276,7 @@ pub fn panel_with_header_actions<R>(
 /// `show_timestamps` adds a Timestamp on/off control to the left of Stream when `Some`.
 pub fn panel_with_footer(
     ui: &mut Ui,
+    icon: Option<egui::ImageSource<'static>>,
     title: impl Into<egui::RichText>,
     add_header_actions: impl FnOnce(&mut Ui),
     add_contents: impl FnOnce(&mut Ui, bool) -> usize,
@@ -263,10 +297,7 @@ pub fn panel_with_footer(
     content_ui.set_clip_rect(content_ui.clip_rect().intersect(content_rect));
     content_ui.set_min_size(content_rect.size());
 
-    content_ui.horizontal(|ui| {
-        ui.heading(title);
-        add_header_actions(ui);
-    });
+    panel_header(&mut content_ui, icon, title, add_header_actions);
     panel_separator(&mut content_ui);
 
     // Pin the footer to the card bottom. Sequential allocation lets a ScrollArea

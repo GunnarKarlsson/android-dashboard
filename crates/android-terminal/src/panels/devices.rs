@@ -5,10 +5,11 @@ use crate::app::App;
 use crate::theme;
 use crate::ui_elements;
 
-pub fn devices_panel(ui: &mut egui::Ui, app: &mut App) {
+pub fn devices_panel(ui: &mut egui::Ui, app: &mut App, icon: Option<egui::ImageSource<'static>>) {
     let mut refresh = false;
     ui_elements::panel_with_header_actions(
         ui,
+        icon,
         "Devices",
         |ui| {
             refresh = ui_elements::icon_button(ui, theme::icons::REFRESH).clicked();

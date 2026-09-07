@@ -23,6 +23,8 @@ pub mod colors {
 
     /// Text and widget foreground.
     pub const OFF_WHITE: Color32 = Color32::from_rgb(232, 232, 228);
+    /// Panel header icons.
+    pub const HEADER_ICON: Color32 = Color32::from_rgb(176, 180, 188);
     /// Muted footer status text inside panel cards.
     pub const FOOTER_TEXT: Color32 = Color32::from_rgb(140, 146, 156);
     /// Native window title bar fill (macOS fullsize content chrome).
@@ -107,14 +109,55 @@ pub const PANEL_CANVAS_MARGIN: i8 = 12;
 /// Height of the custom macOS title bar under the native traffic lights.
 pub const TITLE_BAR_HEIGHT: f32 = 28.0;
 
-/// Nerd Font glyphs from JetBrains Mono (see `assets/fonts`).
+/// Header icons (SVG) and Nerd Font glyphs.
 pub mod icons {
     /// Circular arrows — `nf-md-refresh`.
     pub const REFRESH: &str = "\u{f0450}";
+
+    /// RAM module icon.
+    pub fn ram() -> egui::ImageSource<'static> {
+        egui::include_image!("../assets/icons/ram.svg")
+    }
+
+    /// Hard-drive icon.
+    pub fn disc() -> egui::ImageSource<'static> {
+        egui::include_image!("../assets/icons/disc.svg")
+    }
+
+    /// Network sitemap icon.
+    pub fn network() -> egui::ImageSource<'static> {
+        egui::include_image!("../assets/icons/network.svg")
+    }
+
+    /// Triangle warning icon.
+    pub fn errors() -> egui::ImageSource<'static> {
+        egui::include_image!("../assets/icons/errors.svg")
+    }
+
+    /// Circle exclamation icon.
+    pub fn logcat() -> egui::ImageSource<'static> {
+        egui::include_image!("../assets/icons/logcat.svg")
+    }
+
+    /// Microchip icon.
+    pub fn insight() -> egui::ImageSource<'static> {
+        egui::include_image!("../assets/icons/insight.svg")
+    }
+
+    /// Traffic-light icon.
+    pub fn traffic() -> egui::ImageSource<'static> {
+        egui::include_image!("../assets/icons/traffic.svg")
+    }
+
+    /// Mobile-device icon.
+    pub fn device() -> egui::ImageSource<'static> {
+        egui::include_image!("../assets/icons/device.svg")
+    }
 }
 
 /// Apply app-wide egui styling. Called once at startup from the eframe creation hook.
 pub fn configure(ctx: &Context) {
+    egui_extras::install_image_loaders(ctx);
     install_fonts(ctx);
 
     ctx.all_styles_mut(apply_shared_style);
@@ -141,7 +184,7 @@ fn apply_shared_style(style: &mut egui::Style) {
     );
     style
         .text_styles
-        .insert(TextStyle::Heading, FontId::new(20.0, bold));
+        .insert(TextStyle::Heading, FontId::new(16.0, bold));
     style.text_styles.insert(
         TextStyle::Monospace,
         FontId::new(13.0, FontFamily::Monospace),
