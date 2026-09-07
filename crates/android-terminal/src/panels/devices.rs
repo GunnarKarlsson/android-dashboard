@@ -2,20 +2,20 @@ use adb_client::DeviceState;
 use eframe::egui;
 
 use crate::app::App;
-use crate::theme;
 use crate::ui_elements;
 
 pub fn devices_panel(ui: &mut egui::Ui, app: &mut App, icon: Option<egui::ImageSource<'static>>) {
     let mut refresh = false;
-    ui_elements::panel_with_header_actions(
+    ui_elements::panel_with_custom_footer(
         ui,
         icon,
         "Devices",
-        |ui| {
-            refresh = ui_elements::icon_button(ui, theme::icons::REFRESH).clicked();
-        },
+        |_| {},
         |ui| {
             show_devices_body(ui, app);
+        },
+        |ui| {
+            refresh = ui_elements::devices_footer(ui);
         },
     );
     if refresh {

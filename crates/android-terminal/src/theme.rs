@@ -107,11 +107,8 @@ pub const PANEL_CANVAS_MARGIN: i8 = 12;
 /// Height of the custom macOS title bar under the native traffic lights.
 pub const TITLE_BAR_HEIGHT: f32 = 36.0;
 
-/// Header icons (SVG) and Nerd Font glyphs.
+/// Panel header icons.
 pub mod icons {
-    /// Circular arrows — `nf-md-refresh`.
-    pub const REFRESH: &str = "\u{f0450}";
-
     /// RAM module icon.
     pub fn ram() -> egui::ImageSource<'static> {
         egui::include_image!("../assets/icons/ram.svg")

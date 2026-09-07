@@ -102,52 +102,6 @@ fn panel_padding(ui: &Ui) -> egui::Margin {
     ui.style().spacing.window_margin
 }
 
-const ICON_BUTTON_PADDING: f32 = 6.0;
-
-fn icon_button_widget(ui: &mut Ui, icon: &str) -> egui::Response {
-    let galley = egui::WidgetText::from(icon).into_galley(
-        ui,
-        Some(egui::TextWrapMode::Extend),
-        f32::INFINITY,
-        egui::TextStyle::Button,
-    );
-    let ink = if galley.mesh_bounds.is_positive() {
-        galley.mesh_bounds
-    } else {
-        galley.rect
-    };
-    let inner = ink.size().x.max(ink.size().y);
-    let button_size = inner + 2.0 * ICON_BUTTON_PADDING;
-    let (rect, response) =
-        ui.allocate_exact_size(egui::vec2(button_size, button_size), egui::Sense::click());
-
-    if ui.is_rect_visible(rect) {
-        let visuals = ui.style().interact(&response);
-        ui.painter().rect(
-            rect,
-            visuals.corner_radius,
-            visuals.weak_bg_fill,
-            egui::Stroke::NONE,
-            egui::StrokeKind::Inside,
-        );
-        let pos = rect.center() - ink.center().to_vec2();
-        ui.painter().galley(pos, galley, visuals.text_color());
-    }
-
-    if let Some(cursor) = ui.visuals().interact_cursor {
-        if response.hovered() {
-            ui.ctx().set_cursor_icon(cursor);
-        }
-    }
-
-    response
-}
-
-/// Icon-only button.
-pub fn icon_button(ui: &mut Ui, icon: &str) -> egui::Response {
-    icon_button_widget(ui, icon)
-}
-
 /// Space below a toolbar row (filter, etc.), matching panel padding.
 pub fn section_gap(ui: &mut Ui) {
     ui.add_space(panel_padding(ui).bottom as f32);
@@ -229,7 +183,7 @@ pub fn panel<R>(
     panel_with_header_actions(ui, icon, title, |_| {}, add_body)
 }
 
-/// Like [`panel`], with extra widgets on the header row (e.g. the devices refresh icon).
+/// Like [`panel`], with extra widgets on the header row.
 pub fn panel_with_header_actions<R>(
     ui: &mut Ui,
     icon: Option<egui::ImageSource<'static>>,
@@ -281,20 +235,15 @@ fn panel_header(
     });
 }
 
-/// Like [`panel_with_header_actions`], with a bottom footer inside the card.
-///
-/// `add_contents` receives the current auto-scroll flag and returns the number of lines
-/// in the body text area. The footer is the only control that toggles auto-scroll.
-/// `show_timestamps` adds a Timestamp on/off control to the left of Stream when `Some`.
-pub fn panel_with_footer(
+/// Panel card with a footer pinned to the bottom of the tile.
+pub fn panel_with_custom_footer<R>(
     ui: &mut Ui,
     icon: Option<egui::ImageSource<'static>>,
     title: impl Into<egui::RichText>,
     add_header_actions: impl FnOnce(&mut Ui),
-    add_contents: impl FnOnce(&mut Ui, bool) -> usize,
-    auto_scroll: &mut bool,
-    show_timestamps: Option<&mut bool>,
-) {
+    add_body: impl FnOnce(&mut Ui) -> R,
+    add_footer: impl FnOnce(&mut Ui),
+) -> R {
     // Same structure as `Frame::begin`/`end`, but always paint/allocate the tile-sized
     // content rect. Overflowing body content must not push the bottom stroke outside the
     // pane clip (that drops the bottom border).
@@ -312,8 +261,6 @@ pub fn panel_with_footer(
     panel_header(&mut content_ui, icon, title, add_header_actions);
     panel_separator(&mut content_ui);
 
-    // Pin the footer to the card bottom. Sequential allocation lets a ScrollArea
-    // grow the body and push the toggle below the clip rect (error logcat).
     let footer_height = panel_footer_height(&content_ui);
     let max_rect = content_ui.max_rect();
     let footer_top = (max_rect.bottom() - footer_height).max(max_rect.top());
@@ -326,16 +273,14 @@ pub fn panel_with_footer(
         egui::pos2(max_rect.right(), footer_rect.top()),
     );
 
-    let line_count = content_ui
+    let body = content_ui
         .allocate_new_ui(egui::UiBuilder::new().max_rect(body_rect), |ui| {
             ui.set_clip_rect(ui.clip_rect().intersect(body_rect));
-            add_contents(ui, *auto_scroll)
+            add_body(ui)
         })
         .inner;
 
-    content_ui.allocate_new_ui(egui::UiBuilder::new().max_rect(footer_rect), |ui| {
-        panel_footer(ui, auto_scroll, show_timestamps, line_count);
-    });
+    content_ui.allocate_new_ui(egui::UiBuilder::new().max_rect(footer_rect), add_footer);
 
     let widget_rect = frame.widget_rect(content_rect);
     if ui.is_rect_visible(widget_rect) {
@@ -343,6 +288,37 @@ pub fn panel_with_footer(
             .set(where_to_put_background, frame.paint(content_rect));
     }
     ui.allocate_rect(frame.outer_rect(content_rect), egui::Sense::hover());
+    body
+}
+
+/// Like [`panel_with_header_actions`], with a bottom footer inside the card.
+///
+/// `add_contents` receives the current auto-scroll flag and returns the number of lines
+/// in the body text area. The footer is the only control that toggles auto-scroll.
+/// `show_timestamps` adds a Timestamp on/off control to the left of Stream when `Some`.
+pub fn panel_with_footer(
+    ui: &mut Ui,
+    icon: Option<egui::ImageSource<'static>>,
+    title: impl Into<egui::RichText>,
+    add_header_actions: impl FnOnce(&mut Ui),
+    add_contents: impl FnOnce(&mut Ui, bool) -> usize,
+    auto_scroll: &mut bool,
+    show_timestamps: Option<&mut bool>,
+) {
+    let line_count = std::cell::Cell::new(0);
+    let streaming = *auto_scroll;
+    panel_with_custom_footer(
+        ui,
+        icon,
+        title,
+        add_header_actions,
+        |ui| {
+            line_count.set(add_contents(ui, streaming));
+        },
+        |ui| {
+            panel_footer(ui, auto_scroll, show_timestamps, line_count.get());
+        },
+    );
 }
 
 /// Vertical padding above and below the footer status text.
@@ -369,41 +345,21 @@ pub fn panel_footer(
     show_timestamps: Option<&mut bool>,
     line_count: usize,
 ) {
-    let rect = ui.max_rect();
-    ui.allocate_rect(rect, egui::Sense::hover());
-
-    ui.painter().hline(
-        rect.x_range(),
-        rect.top(),
-        egui::Stroke::new(1.0, colors::PANEL_SEPARATOR),
-    );
-
-    let stream_label = if *auto_scroll {
-        "Stream: Active"
-    } else {
-        "Stream: Paused"
-    };
-    let timestamp_label = show_timestamps.as_ref().map(|show| {
-        if **show {
-            "Timestamp: On"
+    footer_bar(ui, |ui| {
+        let stream_label = if *auto_scroll {
+            "Stream: Active"
         } else {
-            "Timestamp: Off"
-        }
-    });
-    let lines_label = format!("Lines: {line_count}");
+            "Stream: Paused"
+        };
+        let timestamp_label = show_timestamps.as_ref().map(|show| {
+            if **show {
+                "Timestamp: On"
+            } else {
+                "Timestamp: Off"
+            }
+        });
+        let lines_label = format!("Lines: {line_count}");
 
-    let content_rect = egui::Rect::from_min_max(
-        egui::pos2(
-            rect.left() + FOOTER_LABEL_INSET_X,
-            rect.top() + FOOTER_LABEL_OFFSET_Y,
-        ),
-        egui::pos2(
-            rect.right() - FOOTER_LABEL_INSET_X,
-            rect.bottom() + FOOTER_LABEL_OFFSET_Y,
-        ),
-    );
-
-    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(content_rect), |ui| {
         let gap = ui.spacing().item_spacing.x;
         let timestamp_w = timestamp_label.map(|label| footer_label_width(ui, label));
         let lines_w = footer_label_width(ui, &lines_label);
@@ -443,6 +399,42 @@ pub fn panel_footer(
     });
 }
 
+/// Footer with a right-aligned Refresh control. Returns `true` when Refresh is clicked.
+pub fn devices_footer(ui: &mut Ui) -> bool {
+    let mut refresh = false;
+    footer_bar(ui, |ui| {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            refresh = footer_action(ui, "Refresh", "Re-run adb devices");
+        });
+    });
+    refresh
+}
+
+/// Separator and inset content area shared by panel footers.
+fn footer_bar(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui)) {
+    let rect = ui.max_rect();
+    ui.allocate_rect(rect, egui::Sense::hover());
+
+    ui.painter().hline(
+        rect.x_range(),
+        rect.top(),
+        egui::Stroke::new(1.0, colors::PANEL_SEPARATOR),
+    );
+
+    let content_rect = egui::Rect::from_min_max(
+        egui::pos2(
+            rect.left() + FOOTER_LABEL_INSET_X,
+            rect.top() + FOOTER_LABEL_OFFSET_Y,
+        ),
+        egui::pos2(
+            rect.right() - FOOTER_LABEL_INSET_X,
+            rect.bottom() + FOOTER_LABEL_OFFSET_Y,
+        ),
+    );
+
+    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(content_rect), add_contents);
+}
+
 /// Unwrapped width of footer status text in the Small style.
 fn footer_label_width(ui: &Ui, text: &str) -> f32 {
     egui::WidgetText::from(egui::RichText::new(text).small().color(colors::FOOTER_TEXT))
@@ -456,19 +448,22 @@ fn footer_label_width(ui: &Ui, text: &str) -> f32 {
         .x
 }
 
-fn footer_toggle(ui: &mut Ui, label: &str, hover: &str, flag: &mut bool) {
-    let response = ui
-        .add(
-            egui::Label::new(
-                egui::RichText::new(label)
-                    .small()
-                    .color(colors::FOOTER_TEXT),
-            )
-            .sense(egui::Sense::click()),
+fn footer_action(ui: &mut Ui, label: &str, hover: &str) -> bool {
+    ui.add(
+        egui::Label::new(
+            egui::RichText::new(label)
+                .small()
+                .color(colors::FOOTER_TEXT),
         )
-        .on_hover_cursor(egui::CursorIcon::PointingHand)
-        .on_hover_text(hover);
-    if response.clicked() {
+        .sense(egui::Sense::click()),
+    )
+    .on_hover_cursor(egui::CursorIcon::PointingHand)
+    .on_hover_text(hover)
+    .clicked()
+}
+
+fn footer_toggle(ui: &mut Ui, label: &str, hover: &str, flag: &mut bool) {
+    if footer_action(ui, label, hover) {
         *flag = !*flag;
     }
 }
