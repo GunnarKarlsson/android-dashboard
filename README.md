@@ -6,7 +6,7 @@ A native GUI written in Rust for debugging Android devices and emulators on macO
 
 Select a device, then watch RAM, storage, logcat, and network in one window. Panels resize by dragging the gaps between them.
 
-Panels:
+## Panels:
 
 **Devices** — Connected emulators and USB devices. Click one to drive the rest of the dashboard. Footer **Refresh** re-runs `adb devices`. Offline or unauthorized entries are listed but cannot be selected.
 
