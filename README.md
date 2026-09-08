@@ -6,49 +6,88 @@
 [![CI](https://github.com/GunnarKarlsson/android-tui/actions/workflows/ci.yml/badge.svg)](https://github.com/GunnarKarlsson/android-tui/actions/workflows/ci.yml)
 [![Stars](https://img.shields.io/github/stars/GunnarKarlsson/android-tui)](https://github.com/GunnarKarlsson/android-tui/stargazers)
 
-A native GUI written in Rust for debugging Android devices and emulators on macOS.
+A dashboard written in Rust for debugging Android devices and emulators on macOS. 
+Shows essential Android debug data in a single window.
 
 ![Android Terminal dashboard](screenshot1.png)
 
-Select a device, then watch RAM, storage, logcat, and network in one window. Panels resize by dragging the gaps between them.
+## Prerequisites
 
-## Panels:
+- **Rust** 1.88+ (see `rust-toolchain.toml`)
+- **Android SDK platform-tools** with `adb` on your `PATH`
 
-**Devices** — Connected emulators and USB devices. Click one to drive the rest of the dashboard. Footer **Refresh** re-runs `adb devices`. Offline or unauthorized entries are listed but cannot be selected.
+Install platform-tools via [Android Studio](https://developer.android.com/studio) and verify adb is available:
 
-**RAM** — Live memory usage
+```bash
+adb version
+```
+You'll need an Android device connected, via USB or via emulator.
 
-**Storage** — Live internal storage
+## Build
 
-**Logcat** — Streaming logcat for the selected device.
+```bash
+cargo build
+```
 
-- Substring filter
-- Tag filters (type a tag and press Enter)
-- Footer **Stream** pauses the feed
-- Footer **Timestamp** toggles timestamps
-- Lines colored by log level
+## Run the Dashboard
+
+```bash
+cargo run -p android-terminal
+```
+
+## Project layout
+
+```
+crates/
+  adb-client/       # adb command wrappers and parsing
+  ai-insight/       # error clustering and Chat Completions client
+  android-terminal/ # GUI application
+```
+
+# How to Use the Dashboard
+
+In the dashboard's upper left Devices widget, select a device. This will populate the dashboard with the device's data.
+
+
+## Widgets:
+
+The dashboard shows the following data in widgets:
+
+**Devices** — Connected emulators and USB devices.
+
+**RAM** — Live memory usage.
+
+**Storage** — Live internal storage.
+
+**Logcat** — Streaming logcat for the selected device. Allows filtering by text and tag
 
 **Logcat Errors** — Logcat but only errors and fatals.
 
-**Insight** — Short AI verdict on recent errors. See [AI insights](#ai-insights).
+**Insight** — An LLM's opinion on the error logs. See [AI insights](#ai-insights) for details.
 
-**Storage Details** — Category totals and per-app storage.
+**Storage Details** — Directory totals and per-app storage.
 
 **Network Activity** — Per-interface RX/TX totals and current down/up rates.
 
-**App Traffic** — Per-package network usage: total, foreground, background, WiFi, and mobile.
+**App Traffic** —  Network usage by app/package.
 
 ## AI insights
 
-Error and fatal logcat lines are clustered by tag and a noise-stripped message shape (hex, paths, and numbers are stripped, and security-related data is redacted). The app POSTs a JSON snapshot of those clusters to an LLM. When the mix of errors changes, it posts again (with a cooldown).
+The dashboard app submits a normalized logcat error log to a Chat Completions API of your choice, and display the responses.
+Before dispatch to the API, error and fatal logcat lines are summarized, noise-stripped and filtered to remove secret data. 
 
-The model replies with a one-line verdict (`HEALTHY` / `DEGRADING` / `FAILING`), top issues, and a few next checks. That text shows in the **Insight** panel.
+When the mix of errors changes, the app posts again, with a cooldown.
+
+The model replies with a one-line verdict (`HEALTHY` / `DEGRADING` / `FAILING`), top issues, and a recommendation for what to do next. That text shows in the **Insight** panel.
 
 No request is sent until `AI_PROVIDER_API_KEY` is set.
 
-## Configure AI provider
+## Configuration
 
-Settings are read from the process environment. On startup the app also loads `crates/android-terminal/.env` if that file exists.
+### Configure AI provider
+
+Settings are read from the process environment. 
+On startup the app also loads `crates/android-terminal/.env` if that file exists.
 
 | Variable | Required | Default |
 | --- | --- | --- |
@@ -64,7 +103,7 @@ AI_PROVIDER_BASE_URL=https://api.deepseek.com
 AI_PROVIDER_MODEL=deepseek-v4-pro
 ```
 
-The provider must accept [OpenAI Chat Completions](https://platform.openai.com/docs/api-reference/chat/create): `POST {AI_PROVIDER_BASE_URL}/chat/completions` (include `/v1` in the base URL if that is part of the path):
+The provider should accept [OpenAI Chat Completions](https://platform.openai.com/docs/api-reference/chat/create): `POST {AI_PROVIDER_BASE_URL}/chat/completions` (include `/v1` in the base URL if that is part of the path):
 
 ```http
 POST /chat/completions
@@ -84,9 +123,9 @@ Content-Type: application/json
 }
 ```
 
-`"thinking"` is sent for DeepSeek; other hosts typically ignore unknown fields.
+The `"thinking"` field is sent for DeepSeek. Other hosts typically ignore unknown fields.
 
-Response:
+Expected response format from API:
 
 ```json
 {
@@ -99,31 +138,4 @@ Response:
     }
   ]
 }
-```
-
-## Prerequisites
-
-- **Rust** 1.88+ (see `rust-toolchain.toml`)
-- **Android SDK platform-tools** with `adb` on your `PATH`
-
-Install platform-tools via [Android Studio](https://developer.android.com/studio) and verify adb is available:
-```
-adb version
-```
-You'll need a device connected, via USB or via emulator.
-
-
-## Run the Dashboard
-
-```bash
-cargo run -p android-terminal
-```
-
-## Project layout
-
-```
-crates/
-  adb-client/       # adb command wrappers and parsing
-  ai-insight/       # error clustering and Chat Completions client
-  android-terminal/ # GUI application
 ```
