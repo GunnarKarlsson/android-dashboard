@@ -1,5 +1,7 @@
 # Android Dashboard
 
+[![CI](https://github.com/GunnarKarlsson/android-tui/actions/workflows/ci.yml/badge.svg)](https://github.com/GunnarKarlsson/android-tui/actions/workflows/ci.yml)
+
 A native GUI written in Rust for debugging Android devices and emulators on macOS.
 
 ![Android Terminal dashboard](screenshot1.png)
