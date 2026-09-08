@@ -4,6 +4,7 @@
 ![Rust](https://img.shields.io/badge/rust-1.88.0-orange?logo=rust)
 ![macOS](https://img.shields.io/badge/platform-macOS-black?logo=apple)
 [![CI](https://github.com/GunnarKarlsson/android-tui/actions/workflows/ci.yml/badge.svg)](https://github.com/GunnarKarlsson/android-tui/actions/workflows/ci.yml)
+[![Stars](https://img.shields.io/github/stars/GunnarKarlsson/android-tui)](https://github.com/GunnarKarlsson/android-tui/stargazers)
 
 A native GUI written in Rust for debugging Android devices and emulators on macOS.
 
