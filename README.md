@@ -53,23 +53,17 @@ In the dashboard's upper left Devices widget, select a device. This will populat
 
 The dashboard shows the following data in widgets:
 
-**Devices** — Connected emulators and USB devices.
-
-**RAM** — Live memory usage.
-
-**Storage** — Live internal storage.
-
-**Logcat** — Streaming logcat for the selected device. Allows filtering by text and tag
-
-**Logcat Errors** — Logcat but only errors and fatals.
-
-**Insight** — An LLM's opinion on the error logs. See [AI insights](#ai-insights) for details.
-
-**Storage Details** — Directory totals and per-app storage.
-
-**Network Activity** — Per-interface RX/TX totals and current down/up rates.
-
-**App Traffic** —  Network usage by app/package.
+| Widget | Description |
+| --- | --- |
+| Devices | Connected emulators and USB devices. |
+| RAM | Live memory usage. |
+| Storage | Live internal storage. |
+| Logcat | Streaming logcat for the selected device. Allows filtering by text and tag. |
+| Logcat Errors | Logcat but only errors and fatals. |
+| Insight | An LLM's opinion on the error logs. See [AI insights](#ai-insights) for details. |
+| Storage Details | Directory totals and per-app storage. |
+| Network Activity | Per-interface RX/TX totals and current down/up rates. |
+| App Traffic | Network usage by app/package. |
 
 ## AI insights
 
