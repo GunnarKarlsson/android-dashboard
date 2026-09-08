@@ -167,7 +167,6 @@ fn parse_meminfo(text: &str) -> Result<MemoryStats, AdbError> {
 
 fn parse_kb_value(raw: &str) -> Result<u64, AdbError> {
     let kb = raw
-        .trim()
         .split_whitespace()
         .next()
         .ok_or_else(|| AdbError::ParseFailed(format!("invalid meminfo value: {raw}")))?;

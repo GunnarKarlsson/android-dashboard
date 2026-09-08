@@ -31,7 +31,7 @@ fn format_throughput(bps: f64) -> String {
     } else if bps >= 1024.0 {
         format!("{:.1} KB/s", bps / 1024.0)
     } else {
-        format!("{:.0} B/s", bps)
+        format!("{bps:.0} B/s")
     }
 }
 

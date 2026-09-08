@@ -49,11 +49,7 @@ pub fn storage_gauge_panel(ui: &mut egui::Ui, app: &App) {
     }
 
     let Some(overview) = &app.storage_gauge else {
-        if app.storage_gauge_rx.is_some() {
-            ui_elements::panel_loading(ui);
-        } else {
-            ui_elements::panel_loading(ui);
-        }
+        ui_elements::panel_loading(ui);
         return;
     };
 

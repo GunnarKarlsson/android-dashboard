@@ -325,7 +325,7 @@ fn parse_logcat_line(line: &str) -> Vec<LogEntry> {
 
     let message = MULTIPLE_SPACES
         .replace_all(
-            &captures.get(6).map(|m| m.as_str()).unwrap_or_default(),
+            captures.get(6).map(|m| m.as_str()).unwrap_or_default(),
             " ",
         )
         .trim()

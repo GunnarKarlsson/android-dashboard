@@ -18,11 +18,7 @@ pub fn ram_gauge_panel(ui: &mut egui::Ui, app: &App) {
     }
 
     let Some(memory) = &app.ram_memory else {
-        if app.ram_rx.is_some() {
-            ui_elements::panel_loading(ui);
-        } else {
-            ui_elements::panel_loading(ui);
-        }
+        ui_elements::panel_loading(ui);
         return;
     };
 

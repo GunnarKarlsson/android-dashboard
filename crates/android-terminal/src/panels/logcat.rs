@@ -66,13 +66,15 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> 
 
     show_log_scroll(
         ui,
-        &app.log_lines,
-        &matching,
-        auto_scroll,
-        show_timestamps,
-        egui::Id::new("logcat_all_scroll"),
-        LogScrollStyle::ByLevel,
-        Some(&tag_filters),
+        LogScrollArgs {
+            lines: &app.log_lines,
+            matching: &matching,
+            stick_to_bottom: auto_scroll,
+            show_timestamps,
+            scroll_id: egui::Id::new("logcat_all_scroll"),
+            style: LogScrollStyle::ByLevel,
+            tag_filters: Some(&tag_filters),
+        },
     );
     matching.len()
 }
@@ -137,20 +139,33 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
 
     show_log_scroll(
         ui,
-        &app.error_lines,
-        &matching,
-        auto_scroll,
-        show_timestamps,
-        egui::Id::new("logcat_errors_scroll"),
-        LogScrollStyle::ErrorsOnly,
-        Some(&tag_filters),
+        LogScrollArgs {
+            lines: &app.error_lines,
+            matching: &matching,
+            stick_to_bottom: auto_scroll,
+            show_timestamps,
+            scroll_id: egui::Id::new("logcat_errors_scroll"),
+            style: LogScrollStyle::ErrorsOnly,
+            tag_filters: Some(&tag_filters),
+        },
     );
     matching.len()
 }
 
+#[derive(Clone, Copy)]
 enum LogScrollStyle {
     ByLevel,
     ErrorsOnly,
+}
+
+struct LogScrollArgs<'a> {
+    lines: &'a VecDeque<CachedLogLine>,
+    matching: &'a [usize],
+    stick_to_bottom: bool,
+    show_timestamps: bool,
+    scroll_id: egui::Id,
+    style: LogScrollStyle,
+    tag_filters: Option<&'a [LogcatTagFilter]>,
 }
 
 fn filtered_line_indices(
@@ -176,37 +191,28 @@ fn filtered_line_indices(
         .collect()
 }
 
-fn show_log_scroll(
-    ui: &mut egui::Ui,
-    lines: &VecDeque<CachedLogLine>,
-    matching: &[usize],
-    stick_to_bottom: bool,
-    show_timestamps: bool,
-    scroll_id: egui::Id,
-    style: LogScrollStyle,
-    tag_filters: Option<&[LogcatTagFilter]>,
-) {
+fn show_log_scroll(ui: &mut egui::Ui, args: LogScrollArgs<'_>) {
     ui.style_mut().override_text_style = Some(egui::TextStyle::Monospace);
     let row_height = ui.text_style_height(&egui::TextStyle::Monospace);
-    let total_rows = matching.len();
+    let total_rows = args.matching.len();
 
     // `stick_to_bottom` is egui's API for terminal/log follow. `animated(false)` keeps
     // follow updates from lerping through the buffer when content grows.
     egui::ScrollArea::both()
-        .id_salt(scroll_id)
-        .stick_to_bottom(stick_to_bottom)
+        .id_salt(args.scroll_id)
+        .stick_to_bottom(args.stick_to_bottom)
         .animated(false)
         .auto_shrink([false, false])
         .max_height(ui.available_height())
         .show_rows(ui, row_height, total_rows, |ui, row_range| {
             for row in row_range {
-                let line = &lines[matching[row]];
-                let color = match style {
+                let line = &args.lines[args.matching[row]];
+                let color = match args.style {
                     LogScrollStyle::ErrorsOnly => error_line_color(line.level),
                     LogScrollStyle::ByLevel => log_level_color(line.level),
                 };
-                let text = line.display(show_timestamps);
-                if let Some(tag_filters) = tag_filters {
+                let text = line.display(args.show_timestamps);
+                if let Some(tag_filters) = args.tag_filters {
                     let mut job = build_highlight_job(ui, text, color, tag_filters);
                     job.wrap.max_rows = 1;
                     job.wrap.overflow_character = None;

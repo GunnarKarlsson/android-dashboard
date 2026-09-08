@@ -519,17 +519,10 @@ impl App {
                     .is_none_or(|at| at.elapsed() >= INSIGHT_COOLDOWN);
                 let key_changed = key != prev;
                 let high = snapshot.has_new_high_severity(prev);
-                if high && key_changed {
-                    true
-                } else if key_changed && cooled {
-                    true
-                } else if !key_changed
-                    && self.insight.status == InsightStatus::RequestFailed
-                    && cooled
-                {
-                    true
+                if key_changed {
+                    high || cooled
                 } else {
-                    false
+                    self.insight.status == InsightStatus::RequestFailed && cooled
                 }
             }
         };

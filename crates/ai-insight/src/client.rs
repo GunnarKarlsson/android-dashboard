@@ -90,7 +90,7 @@ Max {MAX_REPLY_WORDS} words. No preamble."
             let text = response.into_string().unwrap_or_default();
             tracing::error!(status, body = %text, "insight response error");
             Err(InsightError::Http {
-                status: status as u16,
+                status,
                 body: text,
             })
         }
