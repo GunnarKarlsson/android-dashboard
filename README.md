@@ -1,6 +1,9 @@
 # Android Dashboard
 
 [![CI](https://github.com/GunnarKarlsson/android-tui/actions/workflows/ci.yml/badge.svg)](https://github.com/GunnarKarlsson/android-tui/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+![Rust](https://img.shields.io/badge/rust-1.88.0-orange?logo=rust)
+![macOS](https://img.shields.io/badge/platform-macOS-black?logo=apple)
 
 A native GUI written in Rust for debugging Android devices and emulators on macOS.
 
