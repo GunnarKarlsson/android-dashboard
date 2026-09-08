@@ -48,7 +48,7 @@ crates/
 
 In the dashboard's upper left devices widget, select the device you want to inspect. This will populate the dashboard with the device's data. The first device in the device list is automatically selected on start. The device list is ordered as per `adb devices -l`.
 
-## Widgets:
+## Widgets
 
 The dashboard shows the following data in widgets:
 
