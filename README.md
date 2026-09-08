@@ -66,7 +66,7 @@ The dashboard shows the following data in widgets:
 
 ## AI insights
 
-The dashboard app submits a normalized logcat error log to a Chat Completions API of your choice, and display the responses.
+The dashboard app submits a normalized logcat error log to a Chat Completions API of your choice, and displays the response.
 Before dispatch to the API, error and fatal logcat lines are summarized, noise-stripped and filtered to remove secret data. 
 
 When the mix of errors changes, the app posts again, with a cooldown.
@@ -77,7 +77,9 @@ No request is sent until `AI_PROVIDER_API_KEY` is set.
 
 ## Configuration
 
-### Configure AI provider
+The app requires configuration only in the case you want to see AI insights.
+
+### Configure AI provider - Details
 
 Settings are read from the process environment. 
 On startup the app also loads `crates/android-terminal/.env` if that file exists.
