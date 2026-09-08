@@ -44,10 +44,9 @@ crates/
   android-terminal/ # GUI application
 ```
 
-# How to Use the Dashboard
+## How to Use the Dashboard
 
-In the dashboard's upper left Devices widget, select a device. This will populate the dashboard with the device's data.
-
+In the dashboard's upper left devices widget, select the device you want to inspect. This will populate the dashboard with the device's data. The first device in the device list is automatically selected on start. The device list is ordered as per `adb devices -l`.
 
 ## Widgets:
 
