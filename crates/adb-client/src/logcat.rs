@@ -404,6 +404,12 @@ fn parse_logcat_line(line: &str) -> Vec<LogEntry> {
 mod tests {
     use super::*;
 
+    fn parse_one(line: &str) -> LogEntry {
+        let mut entries = parse_logcat_line(line);
+        assert_eq!(entries.len(), 1, "{line:?}");
+        entries.pop().unwrap()
+    }
+
     #[test]
     fn adb_diagnostic_is_error_level() {
         let entry = LogEntry::adb_diagnostic("device offline");
@@ -413,8 +419,7 @@ mod tests {
 
     #[test]
     fn parse_standard_logcat_line() {
-        let entry =
-            parse_logcat_line("03-15 10:23:45.123  1234  5678 I MyTag: Hello world").unwrap();
+        let entry = parse_one("03-15 10:23:45.123  1234  5678 I MyTag: Hello world");
 
         assert_eq!(entry.timestamp, "03-15 10:23:45.123");
         assert_eq!(entry.pid, 1234);
@@ -426,9 +431,7 @@ mod tests {
 
     #[test]
     fn parse_error_logcat_line() {
-        let entry =
-            parse_logcat_line("09-01 17:00:01.456  9999  9999 E AndroidRuntime: FATAL EXCEPTION")
-                .unwrap();
+        let entry = parse_one("09-01 17:00:01.456  9999  9999 E AndroidRuntime: FATAL EXCEPTION");
 
         assert_eq!(entry.level, 'E');
         assert_eq!(entry.tag, "AndroidRuntime");
@@ -437,7 +440,7 @@ mod tests {
 
     #[test]
     fn parse_line_without_message() {
-        let entry = parse_logcat_line("09-01 17:00:01.456  100  100 W Tag:").unwrap();
+        let entry = parse_one("09-01 17:00:01.456  100  100 W Tag:");
 
         assert_eq!(entry.level, 'W');
         assert_eq!(entry.tag, "Tag");
@@ -446,35 +449,57 @@ mod tests {
 
     #[test]
     fn compact_line_omits_timestamp_pid_and_tid() {
-        let info = parse_logcat_line(
-            "09-02 11:05:45.782  1959  1959 I artd    : GetBestInfo checking vdex next to the dex file (/data/user_de/0/com.google.android.gms/app_chimera/m/000000b4/oat/arm64/dl-Appsearch.optional_261631100400.vdex)",
-        )
-        .unwrap();
+        let info = parse_one(
+            "09-02 11:05:45.782  1959  1959 I artd    : GetBestInfo checking vdex next to the dex file",
+        );
         assert_eq!(
             info.format_line_with_timestamp(false),
-            "I artd    : GetBestInfo checking vdex next to the dex file (/data/user_de/0/com.google.android.gms/app_chimera/m/000000b4/oat/arm64/dl-Appsearch.optional_261631100400.vdex)",
+            "I artd    : GetBestInfo checking vdex next to the dex file",
         );
 
-        let error = parse_logcat_line(
+        let error = parse_one(
             "09-02 11:05:45.782  5353 25353 E AndroidRuntime: \tat kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)",
-        )
-        .unwrap();
+        );
         assert_eq!(
             error.format_line_with_timestamp(false),
-            "E AndroidRuntime: \tat kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)",
+            "E AndroidRuntime: at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)",
+        );
+    }
+
+    #[test]
+    fn wraps_long_messages() {
+        let entries = parse_logcat_line(
+            "09-02 11:05:45.782  1959  1959 I artd    : GetBestInfo checking vdex next to the dex file (/data/user_de/0/com.google.android.gms/app_chimera/m/000000b4/oat/arm64/dl-Appsearch.optional_261631100400.vdex)",
+        );
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].timestamp, "09-02 11:05:45.782");
+        assert_eq!(entries[0].tag, "artd    ");
+        assert_eq!(
+            entries[0].message,
+            "GetBestInfo checking vdex next to the dex file (/data/user_de/0/com.google.android.gms/app_chimera/m/000000b4/oat/arm64/"
+        );
+        assert!(entries[1].timestamp.is_empty());
+        assert!(entries[1].tag.is_empty());
+        assert_eq!(
+            entries[1].message,
+            "dl-Appsearch.optional_261631100400.vdex)"
+        );
+        assert_eq!(
+            entries[1].format_line_with_timestamp(false),
+            "dl-Appsearch.optional_261631100400.vdex)"
         );
     }
 
     #[test]
     fn skip_unrecognized_line() {
-        assert!(parse_logcat_line("--------- beginning of main").is_none());
+        assert!(parse_logcat_line("--------- beginning of main").is_empty());
     }
 
     #[test]
     fn error_level_filter() {
-        let error = parse_logcat_line("09-01 17:00:01.456  1  1 E Tag: boom").unwrap();
-        let fatal = parse_logcat_line("09-01 17:00:01.456  1  1 F Tag: boom").unwrap();
-        let warning = parse_logcat_line("09-01 17:00:01.456  1  1 W Tag: boom").unwrap();
+        let error = parse_one("09-01 17:00:01.456  1  1 E Tag: boom");
+        let fatal = parse_one("09-01 17:00:01.456  1  1 F Tag: boom");
+        let warning = parse_one("09-01 17:00:01.456  1  1 W Tag: boom");
 
         assert!(error.is_error_level());
         assert!(fatal.is_error_level());
