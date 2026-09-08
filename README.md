@@ -6,8 +6,8 @@
 [![CI](https://github.com/GunnarKarlsson/android-tui/actions/workflows/ci.yml/badge.svg)](https://github.com/GunnarKarlsson/android-tui/actions/workflows/ci.yml)
 [![Stars](https://img.shields.io/github/stars/GunnarKarlsson/android-tui)](https://github.com/GunnarKarlsson/android-tui/stargazers)
 
-A dashboard written in Rust for debugging Android devices and emulators on macOS. 
-Shows essential Android debug data in a single window.
+A dashboard written in Rust for debugging Android apps on macOS. 
+Shows essential Android debug data from hardware devices and emulator in a single window.
 
 ![Android Terminal dashboard](screenshot1.png)
 
