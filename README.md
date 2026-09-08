@@ -7,7 +7,7 @@
 [![Stars](https://img.shields.io/github/stars/GunnarKarlsson/android-tui)](https://github.com/GunnarKarlsson/android-tui/stargazers)
 
 A dashboard written in Rust for debugging Android apps on macOS. 
-Shows essential Android debug data from hardware devices and emulator in a single window.
+Shows essential Android debug data from hardware devices and emulator in a single window, together with LLM-generated insights on the error log.
 
 ![Android Terminal dashboard](screenshot1.png)
 
