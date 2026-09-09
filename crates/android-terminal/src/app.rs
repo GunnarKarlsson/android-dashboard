@@ -150,12 +150,7 @@ impl App {
             .find(|device| device.serial == serial)
             .map(|device| device.model.clone())
             .unwrap_or_else(|| "unknown".to_string());
-        if self
-            .insight
-            .maybe_request(&serial, &model, self.logcat_errors.insight_lines())
-        {
-            self.insight
-                .request(&serial, &model, self.logcat_errors.insight_lines());
-        }
+        self.insight
+            .maybe_request(&serial, &model, self.logcat_errors.insight_lines());
     }
 }

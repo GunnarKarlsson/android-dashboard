@@ -41,23 +41,8 @@ impl InsightController {
         self.state.last_error_at = Some(Instant::now());
     }
 
-    /// Builds a snapshot from error-pane lines and starts an insight request.
-    pub(crate) fn request(
-        &mut self,
-        serial: &str,
-        model: &str,
-        lines: impl IntoIterator<Item = InsightLine>,
-    ) {
-        if self.state.status == InsightStatus::RequestSent {
-            return;
-        }
-
-        let now = Instant::now();
-        let snapshot = build_snapshot(lines, LevelMask::Error, model, serial, now);
-        self.queue(serial, snapshot, now);
-    }
-
-    /// Returns whether an insight POST should be sent for the current error-pane lines.
+    /// Builds a snapshot. If settle/cooldown/digest say send, queues the worker.
+    /// Returns true if a request started.
     pub(crate) fn maybe_request(
         &mut self,
         serial: &str,
@@ -75,7 +60,7 @@ impl InsightController {
         }
         let key = snapshot.digest_key();
 
-        match self.state.last_sent_key.as_deref() {
+        let should_send = match self.state.last_sent_key.as_deref() {
             None => self
                 .state
                 .last_error_at
@@ -93,7 +78,13 @@ impl InsightController {
                     self.state.status == InsightStatus::RequestFailed && cooled
                 }
             }
+        };
+        if !should_send {
+            return false;
         }
+
+        self.queue(serial, snapshot, now);
+        true
     }
 
     /// Applies queued insight channel updates that match the current generation and serial.
