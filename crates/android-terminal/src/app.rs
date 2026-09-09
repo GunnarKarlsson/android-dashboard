@@ -451,9 +451,7 @@ impl App {
                 self.logcat_stream = Some(stream);
             }
             Err(err) => {
-                let message = err.user_message();
-                self.logcat_error = Some(message.clone());
-                self.logcat.error = Some(message);
+                self.logcat.error = Some(err.user_message());
             }
         }
 
@@ -463,9 +461,7 @@ impl App {
                 self.error_logcat_stream = Some(stream);
             }
             Err(err) => {
-                let message = err.user_message();
-                self.error_logcat_error = Some(message.clone());
-                self.logcat_errors.error = Some(message);
+                self.logcat_errors.error = Some(err.user_message());
             }
         }
 
@@ -521,20 +517,6 @@ impl App {
     }
 
     fn clear_device_data(&mut self) {
-        self.log_lines.clear();
-        self.pending_log_lines.clear();
-        self.error_lines.clear();
-        self.pending_error_lines.clear();
-        self.logcat_error = None;
-        self.error_logcat_error = None;
-        self.logcat_filter.clear();
-        self.error_logcat_filter.clear();
-        self.logcat_tag_input.clear();
-        self.logcat_tag_filters.clear();
-        self.error_logcat_tag_input.clear();
-        self.error_logcat_tag_filters.clear();
-        self.auto_update_feed = true;
-        self.error_auto_update_feed = true;
         self.logcat.reset_view();
         self.logcat_errors.reset_view();
         self.network_stats = None;
@@ -765,81 +747,22 @@ impl App {
 
     fn drain_logcat(&mut self) -> bool {
         let entries = take_log_entries(self.logcat_rx.as_ref());
-
-        if self.logcat.auto_update_feed {
-            let mut updated = false;
-            if !self.pending_log_lines.is_empty() {
-                self.log_lines.extend(self.pending_log_lines.drain(..));
-                trim_buffer(&mut self.log_lines);
-                updated = true;
-            }
-            self.logcat.flush_pending();
-            if !entries.is_empty() {
-                for entry in entries {
-                    self.log_lines.push_back(CachedLogLine::from_entry(&entry));
-                    self.logcat.append_entry(&entry);
-                }
-                trim_buffer(&mut self.log_lines);
-                updated = true;
-            }
-            updated
-        } else {
-            if !entries.is_empty() {
-                for entry in entries {
-                    self.pending_log_lines
-                        .push_back(CachedLogLine::from_entry(&entry));
-                    self.logcat.append_entry(&entry);
-                }
-                trim_buffer(&mut self.pending_log_lines);
-            }
-            // Even though we received logs, we didn't update the visible lines.
-            false
-        }
+        ingest_log_entries(&mut self.logcat, &entries)
     }
 
     fn drain_error_logcat(&mut self) -> bool {
         let entries = take_log_entries(self.error_logcat_rx.as_ref());
-
-        if self.logcat_errors.auto_update_feed {
-            let mut updated = false;
-            if !self.pending_error_lines.is_empty() {
-                self.error_lines.extend(self.pending_error_lines.drain(..));
-                trim_buffer(&mut self.error_lines);
-                self.insight.last_error_at = Some(Instant::now());
-                updated = true;
-            }
-            if self.logcat_errors.flush_pending() {
-                self.insight.last_error_at = Some(Instant::now());
-            }
-            if !entries.is_empty() {
-                for entry in entries {
-                    if entry.is_error_level() {
-                        self.error_lines
-                            .push_back(CachedLogLine::from_entry(&entry));
-                        self.insight.last_error_at = Some(Instant::now());
-                        updated = true;
-                    }
-                    self.logcat_errors.append_entry(&entry);
-                }
-                if updated {
-                    trim_buffer(&mut self.error_lines);
-                }
-            }
-            updated
-        } else {
-            if !entries.is_empty() {
-                for entry in entries {
-                    if entry.is_error_level() {
-                        self.pending_error_lines
-                            .push_back(CachedLogLine::from_entry(&entry));
-                        self.insight.last_error_at = Some(Instant::now());
-                    }
-                    self.logcat_errors.append_entry(&entry);
-                }
-                trim_buffer(&mut self.pending_error_lines);
-            }
-            false
+        let flush_pending =
+            self.logcat_errors.auto_update_feed && !self.logcat_errors.pending.is_empty();
+        let accept_errors_only = self.logcat_errors.accept_errors_only;
+        let accepted_entry = entries
+            .iter()
+            .any(|entry| !accept_errors_only || entry.is_error_level());
+        let updated = ingest_log_entries(&mut self.logcat_errors, &entries);
+        if flush_pending || accepted_entry {
+            self.insight.last_error_at = Some(Instant::now());
         }
+        updated
     }
 
     fn drain_network(&mut self) -> bool {
@@ -1053,6 +976,19 @@ fn remove_tag_filter(filters: &mut Vec<LogcatTagFilter>, index: usize) {
     if index < filters.len() {
         filters.remove(index);
     }
+}
+
+/// Appends `entries` to `pane`. Flushes pending first when auto-update is on.
+/// Returns true when the visible ring buffer changed.
+fn ingest_log_entries(pane: &mut LogcatPane, entries: &[LogEntry]) -> bool {
+    let mut updated = false;
+    if pane.auto_update_feed {
+        updated |= pane.flush_pending();
+    }
+    for entry in entries {
+        updated |= pane.append_entry(entry);
+    }
+    updated
 }
 
 fn take_log_entries(rx: Option<&Receiver<LogEntry>>) -> Vec<LogEntry> {
