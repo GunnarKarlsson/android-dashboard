@@ -29,7 +29,7 @@ pub fn storage_usage_panel(ui: &mut egui::Ui, app: &App) {
             .show(ui, |ui| {
                 if let Some(breakdown) = &app.metrics.storage_breakdown {
                     show_storage_categories(ui, &breakdown.categories);
-                } else if app.storage_breakdown_rx.is_some() {
+                } else if app.has_storage_breakdown() {
                     ui.label("Loading storage…");
                 }
                 ui.separator();

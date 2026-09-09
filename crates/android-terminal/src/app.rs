@@ -1,43 +1,22 @@
 use std::time::{Duration, Instant};
 
-use adb_client::{
-    AppStoragePoller, AppStorageUpdate, DeviceInfo, LogEntry, LogcatStream, NetworkPoller,
-    NetworkUpdate, ProtocolPoller, ProtocolUpdate, RamPoller, RamUpdate, StorageBreakdownPoller,
-    StorageBreakdownUpdate, StorageGaugePoller, StorageGaugeUpdate,
-};
-use crossbeam_channel::Receiver;
+use adb_client::DeviceInfo;
 use eframe::egui;
 
 use crate::logcat_pane::{add_tag_filter, remove_tag_filter};
 use crate::metrics::MetricStore;
 use crate::roster::{first_ready_serial, DeviceRoster, RosterEvent};
-use crate::session::DeviceSession;
+use crate::session::{DeviceSession, SessionStartErrors};
 
 pub use crate::insight::{InsightController, InsightStatus};
 pub use crate::logcat_pane::{CachedLogLine, LogcatPane, LogcatTagFilter};
 pub use crate::metrics::AppStorageState;
 
-const MAX_DRAIN_PER_FRAME: usize = 500;
 const REPAINT_INTERVAL: Duration = Duration::from_millis(200);
 
 pub struct App {
     pub roster: DeviceRoster,
-    #[allow(dead_code)]
     session: DeviceSession,
-    pub logcat_rx: Option<Receiver<LogEntry>>,
-    pub logcat_stream: Option<LogcatStream>,
-    pub network_rx: Option<Receiver<NetworkUpdate>>,
-    pub network_poller: Option<NetworkPoller>,
-    pub protocol_rx: Option<Receiver<ProtocolUpdate>>,
-    pub protocol_poller: Option<ProtocolPoller>,
-    pub app_storage_rx: Option<Receiver<AppStorageUpdate>>,
-    pub app_storage_poller: Option<AppStoragePoller>,
-    pub storage_breakdown_rx: Option<Receiver<StorageBreakdownUpdate>>,
-    pub storage_breakdown_poller: Option<StorageBreakdownPoller>,
-    pub ram_rx: Option<Receiver<RamUpdate>>,
-    pub ram_poller: Option<RamPoller>,
-    pub storage_gauge_rx: Option<Receiver<StorageGaugeUpdate>>,
-    pub storage_gauge_poller: Option<StorageGaugePoller>,
     pub metrics: MetricStore,
     pub logcat: LogcatPane,
     pub logcat_errors: LogcatPane,
@@ -64,20 +43,6 @@ impl App {
                 selected_serial: None,
             },
             session: DeviceSession::default(),
-            logcat_rx: None,
-            logcat_stream: None,
-            network_rx: None,
-            network_poller: None,
-            protocol_rx: None,
-            protocol_poller: None,
-            app_storage_rx: None,
-            app_storage_poller: None,
-            storage_breakdown_rx: None,
-            storage_breakdown_poller: None,
-            ram_rx: None,
-            ram_poller: None,
-            storage_gauge_rx: None,
-            storage_gauge_poller: None,
             metrics: MetricStore::default(),
             logcat: LogcatPane::default(),
             logcat_errors: LogcatPane {
@@ -124,10 +89,11 @@ impl App {
             return;
         }
 
-        self.stop_streams();
+        self.session.stop();
         self.clear_device_data();
         self.roster.selected_serial = Some(serial.clone());
-        self.start_streams(&serial);
+        let errors = self.session.start(&serial);
+        self.apply_start_errors(errors);
     }
 
     pub fn deselect_device(&mut self) {
@@ -135,77 +101,47 @@ impl App {
             return;
         }
 
-        self.stop_streams();
+        self.session.stop();
         self.clear_device_data();
         self.roster.selected_serial = None;
     }
 
     pub fn shutdown(&mut self) {
-        self.stop_streams();
+        self.session.stop();
     }
 
-    fn start_streams(&mut self, serial: &str) {
-        match LogcatStream::spawn(serial) {
-            Ok((rx, stream)) => {
-                self.logcat_rx = Some(rx);
-                self.logcat_stream = Some(stream);
-            }
-            Err(err) => {
-                let message = err.user_message();
-                self.logcat.error = Some(message.clone());
-                self.logcat_errors.error = Some(message);
-            }
+    /// Copies spawn failures onto the logcat panes and metric snapshots.
+    fn apply_start_errors(&mut self, errors: SessionStartErrors) {
+        if let Some(message) = errors.logcat {
+            self.logcat.error = Some(message.clone());
+            self.logcat_errors.error = Some(message);
         }
+        self.metrics.ram_error = errors.ram;
+        self.metrics.storage_gauge_error = errors.storage_gauge;
+        self.metrics.storage_breakdown_error = errors.storage_breakdown;
+        self.metrics.network_error = errors.network;
+        self.metrics.protocol_error = errors.protocol;
+        if let Some(message) = errors.app_storage {
+            self.metrics.app_storage.error = Some(message);
+        } else if self.session.has_app_storage() {
+            self.metrics.app_storage.scanning = true;
+        }
+    }
 
-        match RamPoller::spawn(serial) {
-            Ok((rx, poller)) => {
-                self.ram_rx = Some(rx);
-                self.ram_poller = Some(poller);
-            }
-            Err(err) => self.metrics.ram_error = Some(err.user_message()),
-        }
+    pub fn has_logcat(&self) -> bool {
+        self.session.has_logcat()
+    }
 
-        match StorageGaugePoller::spawn(serial) {
-            Ok((rx, poller)) => {
-                self.storage_gauge_rx = Some(rx);
-                self.storage_gauge_poller = Some(poller);
-            }
-            Err(err) => self.metrics.storage_gauge_error = Some(err.user_message()),
-        }
+    pub fn has_network(&self) -> bool {
+        self.session.has_network()
+    }
 
-        match StorageBreakdownPoller::spawn(serial) {
-            Ok((rx, poller)) => {
-                self.storage_breakdown_rx = Some(rx);
-                self.storage_breakdown_poller = Some(poller);
-            }
-            Err(err) => self.metrics.storage_breakdown_error = Some(err.user_message()),
-        }
+    pub fn has_protocol(&self) -> bool {
+        self.session.has_protocol()
+    }
 
-        match NetworkPoller::spawn(serial) {
-            Ok((rx, poller)) => {
-                self.network_rx = Some(rx);
-                self.network_poller = Some(poller);
-            }
-            Err(err) => self.metrics.network_error = Some(err.user_message()),
-        }
-
-        match ProtocolPoller::spawn(serial) {
-            Ok((rx, poller)) => {
-                self.protocol_rx = Some(rx);
-                self.protocol_poller = Some(poller);
-            }
-            Err(err) => self.metrics.protocol_error = Some(err.user_message()),
-        }
-
-        // Heavy per-package scan; start after fast pollers and an internal delay.
-        match AppStoragePoller::spawn(serial) {
-            Ok((rx, poller)) => {
-                self.app_storage_rx = Some(rx);
-                self.app_storage_poller = Some(poller);
-                self.metrics.app_storage.scanning = true;
-            }
-            Err(err) => self.metrics.app_storage.error = Some(err.user_message()),
-        }
+    pub fn has_storage_breakdown(&self) -> bool {
+        self.session.has_storage_breakdown()
     }
 
     fn clear_device_data(&mut self) {
@@ -240,250 +176,16 @@ impl App {
         self.insight.drain(self.roster.selected_serial.as_deref())
     }
 
-    fn stop_streams(&mut self) {
-        self.stop_logcat();
-        self.stop_ram();
-        self.stop_storage_gauge();
-        self.stop_network();
-        self.stop_protocols();
-        self.stop_app_storage();
-        self.stop_storage_breakdown();
-    }
-
-    fn stop_network(&mut self) {
-        if let Some(poller) = self.network_poller.take() {
-            poller.stop();
-        }
-        self.network_rx = None;
-    }
-
-    fn stop_protocols(&mut self) {
-        if let Some(poller) = self.protocol_poller.take() {
-            poller.stop();
-        }
-        self.protocol_rx = None;
-    }
-
-    fn stop_app_storage(&mut self) {
-        if let Some(poller) = self.app_storage_poller.take() {
-            poller.stop();
-        }
-        self.app_storage_rx = None;
-    }
-
-    fn stop_storage_breakdown(&mut self) {
-        if let Some(poller) = self.storage_breakdown_poller.take() {
-            poller.stop();
-        }
-        self.storage_breakdown_rx = None;
-    }
-
-    fn stop_ram(&mut self) {
-        if let Some(poller) = self.ram_poller.take() {
-            poller.stop();
-        }
-        self.ram_rx = None;
-    }
-
-    fn stop_storage_gauge(&mut self) {
-        if let Some(poller) = self.storage_gauge_poller.take() {
-            poller.stop();
-        }
-        self.storage_gauge_rx = None;
-    }
-
-    fn stop_logcat(&mut self) {
-        if let Some(stream) = self.logcat_stream.take() {
-            stream.stop();
-        }
-        self.logcat_rx = None;
-    }
-
-    fn drain_logcat(&mut self) -> bool {
-        let entries = take_log_entries(self.logcat_rx.as_ref());
-        let flush_pending =
-            self.logcat_errors.auto_update_feed && !self.logcat_errors.pending.is_empty();
-        let accept_errors_only = self.logcat_errors.accept_errors_only;
-        let accepted_entry = entries
-            .iter()
-            .any(|entry| !accept_errors_only || entry.is_error_level());
-        let updated_all = ingest_log_entries(&mut self.logcat, &entries);
-        let updated_errors = ingest_log_entries(&mut self.logcat_errors, &entries);
-        if flush_pending || accepted_entry {
+    pub fn tick(&mut self, ctx: &egui::Context) {
+        let outcome = self.session.drain_into(
+            &mut self.logcat,
+            &mut self.logcat_errors,
+            &mut self.metrics,
+        );
+        if outcome.error_accepted {
             self.insight.note_error();
         }
-        updated_all || updated_errors
-    }
-
-    fn drain_network(&mut self) -> bool {
-        let Some(rx) = self.network_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                NetworkUpdate::Stats(stats) => {
-                    self.metrics.network_stats = Some(stats);
-                    self.metrics.network_error = None;
-                    updated = true;
-                }
-                NetworkUpdate::Error(message) => {
-                    self.metrics.network_error = Some(message);
-                    updated = true;
-                }
-            }
-        }
-        updated
-    }
-
-    fn drain_protocols(&mut self) -> bool {
-        let Some(rx) = self.protocol_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                ProtocolUpdate::Stats(stats) => {
-                    self.metrics.protocol_stats = Some(stats);
-                    self.metrics.protocol_error = None;
-                    updated = true;
-                }
-                ProtocolUpdate::Error(message) => {
-                    self.metrics.protocol_error = Some(message);
-                    updated = true;
-                }
-            }
-        }
-        updated
-    }
-
-    fn drain_app_storage(&mut self) -> bool {
-        let Some(rx) = self.app_storage_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                AppStorageUpdate::PackageList(packages) => {
-                    if self.metrics.app_storage.packages.is_empty() {
-                        self.metrics.app_storage.set_packages(packages);
-                    } else {
-                        self.metrics.app_storage.merge_packages(packages);
-                    }
-                    self.metrics.app_storage.error = None;
-                    updated = true;
-                }
-                AppStorageUpdate::PackageStorage(storage) => {
-                    self.metrics
-                        .app_storage
-                        .set_size(&storage.package, storage.total_bytes);
-                    updated = true;
-                }
-                AppStorageUpdate::ScanComplete => {
-                    self.metrics.app_storage.scanning = false;
-                    updated = true;
-                }
-                AppStorageUpdate::Error(message) => {
-                    self.metrics.app_storage.error = Some(message);
-                    updated = true;
-                }
-            }
-        }
-        updated
-    }
-
-    fn drain_storage_breakdown(&mut self) -> bool {
-        let Some(rx) = self.storage_breakdown_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                StorageBreakdownUpdate::Breakdown(breakdown) => {
-                    self.metrics.storage_breakdown = Some(breakdown);
-                    self.metrics.storage_breakdown_error = None;
-                    updated = true;
-                }
-                StorageBreakdownUpdate::Error(message) => {
-                    self.metrics.storage_breakdown_error = Some(message);
-                    updated = true;
-                }
-            }
-        }
-        updated
-    }
-
-    fn drain_ram(&mut self) -> bool {
-        let Some(rx) = self.ram_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                RamUpdate::Memory(memory) => {
-                    self.metrics.ram_memory = Some(memory);
-                    self.metrics.ram_error = None;
-                    updated = true;
-                }
-                RamUpdate::Error(message) => {
-                    self.metrics.ram_error = Some(message);
-                    updated = true;
-                }
-            }
-        }
-        updated
-    }
-
-    fn drain_storage_gauge(&mut self) -> bool {
-        let Some(rx) = self.storage_gauge_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                StorageGaugeUpdate::Overview(overview) => {
-                    self.metrics.storage_gauge = Some(overview);
-                    self.metrics.storage_gauge_error = None;
-                    updated = true;
-                }
-                StorageGaugeUpdate::Error(message) => {
-                    self.metrics.storage_gauge_error = Some(message);
-                    updated = true;
-                }
-            }
-        }
-        updated
-    }
-
-    pub fn tick(&mut self, ctx: &egui::Context) {
-        let mut needs_repaint = false;
-        if self.drain_logcat() {
-            needs_repaint = true;
-        }
-        if self.drain_ram() {
-            needs_repaint = true;
-        }
-        if self.drain_storage_gauge() {
-            needs_repaint = true;
-        }
-        if self.drain_network() {
-            needs_repaint = true;
-        }
-        if self.drain_protocols() {
-            needs_repaint = true;
-        }
-        if self.drain_app_storage() {
-            needs_repaint = true;
-        }
-        if self.drain_storage_breakdown() {
-            needs_repaint = true;
-        }
+        let mut needs_repaint = outcome.ui_changed;
         if self.drain_insight() {
             needs_repaint = true;
         }
@@ -495,25 +197,4 @@ impl App {
             ctx.request_repaint_after(REPAINT_INTERVAL);
         }
     }
-}
-
-/// Appends `entries` to `pane`. Flushes pending first when auto-update is on.
-/// Returns true when the visible ring buffer changed.
-fn ingest_log_entries(pane: &mut LogcatPane, entries: &[LogEntry]) -> bool {
-    let mut updated = false;
-    if pane.auto_update_feed {
-        updated |= pane.flush_pending();
-    }
-    for entry in entries {
-        updated |= pane.append_entry(entry);
-    }
-    updated
-}
-
-fn take_log_entries(rx: Option<&Receiver<LogEntry>>) -> Vec<LogEntry> {
-    let Some(rx) = rx else {
-        return Vec::new();
-    };
-
-    rx.try_iter().take(MAX_DRAIN_PER_FRAME).collect()
 }

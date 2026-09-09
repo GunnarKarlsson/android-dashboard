@@ -17,7 +17,7 @@ pub fn network_panel(ui: &mut egui::Ui, app: &App) {
     }
 
     let Some(stats) = &app.metrics.network_stats else {
-        if app.network_rx.is_some() {
+        if app.has_network() {
             ui.label("Fetching network stats…");
         } else {
             ui_elements::panel_loading(ui);

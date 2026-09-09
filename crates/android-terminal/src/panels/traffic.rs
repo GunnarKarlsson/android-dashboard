@@ -18,7 +18,7 @@ pub fn protocols_panel(ui: &mut egui::Ui, app: &App) {
         }
 
         let Some(stats) = &app.metrics.protocol_stats else {
-            if app.protocol_rx.is_some() {
+            if app.has_protocol() {
                 ui.label("Fetching app traffic…");
             } else {
                 ui_elements::panel_loading(ui);

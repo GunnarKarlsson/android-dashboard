@@ -33,7 +33,7 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> 
         ui_elements::error_label(ui, error);
     }
 
-    if app.logcat_rx.is_none() {
+    if !app.has_logcat() {
         ui_elements::panel_loading(ui);
         return 0;
     }
@@ -92,7 +92,7 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
         ui_elements::error_label(ui, error);
     }
 
-    if app.logcat_rx.is_none() {
+    if !app.has_logcat() {
         ui_elements::panel_loading(ui);
         return 0;
     }
