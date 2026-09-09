@@ -28,8 +28,6 @@ pub struct App {
     pub selected_serial: Option<String>,
     pub logcat_rx: Option<Receiver<LogEntry>>,
     pub logcat_stream: Option<LogcatStream>,
-    pub error_logcat_rx: Option<Receiver<LogEntry>>,
-    pub error_logcat_stream: Option<LogcatStream>,
     pub network_rx: Option<Receiver<NetworkUpdate>>,
     pub network_poller: Option<NetworkPoller>,
     pub protocol_rx: Option<Receiver<ProtocolUpdate>>,
@@ -53,23 +51,7 @@ pub struct App {
     pub storage_gauge_poller: Option<StorageGaugePoller>,
     pub storage_gauge: Option<StorageOverview>,
     pub storage_gauge_error: Option<String>,
-    pub log_lines: VecDeque<CachedLogLine>,
-    pub pending_log_lines: VecDeque<CachedLogLine>,
-    pub error_lines: VecDeque<CachedLogLine>,
-    pub pending_error_lines: VecDeque<CachedLogLine>,
-    pub logcat_error: Option<String>,
-    pub error_logcat_error: Option<String>,
-    pub auto_update_feed: bool,
-    pub error_auto_update_feed: bool,
     pub insight_auto_update_feed: bool,
-    pub logcat_show_timestamps: bool,
-    pub error_show_timestamps: bool,
-    pub logcat_filter: String,
-    pub error_logcat_filter: String,
-    pub logcat_tag_input: String,
-    pub logcat_tag_filters: Vec<LogcatTagFilter>,
-    pub error_logcat_tag_input: String,
-    pub error_logcat_tag_filters: Vec<LogcatTagFilter>,
     pub logcat: LogcatPane,
     pub logcat_errors: LogcatPane,
     pub insight: InsightState,
@@ -319,8 +301,6 @@ impl App {
             selected_serial: None,
             logcat_rx: None,
             logcat_stream: None,
-            error_logcat_rx: None,
-            error_logcat_stream: None,
             network_rx: None,
             network_poller: None,
             protocol_rx: None,
@@ -344,23 +324,7 @@ impl App {
             storage_gauge_poller: None,
             storage_gauge: None,
             storage_gauge_error: None,
-            log_lines: VecDeque::new(),
-            pending_log_lines: VecDeque::new(),
-            error_lines: VecDeque::new(),
-            pending_error_lines: VecDeque::new(),
-            logcat_error: None,
-            error_logcat_error: None,
-            auto_update_feed: true,
-            error_auto_update_feed: true,
             insight_auto_update_feed: true,
-            logcat_show_timestamps: true,
-            error_show_timestamps: true,
-            logcat_filter: String::new(),
-            error_logcat_filter: String::new(),
-            logcat_tag_input: String::new(),
-            logcat_tag_filters: Vec::new(),
-            error_logcat_tag_input: String::new(),
-            error_logcat_tag_filters: Vec::new(),
             logcat: LogcatPane::default(),
             logcat_errors: LogcatPane {
                 accept_errors_only: true,
@@ -731,10 +695,6 @@ impl App {
             stream.stop();
         }
         self.logcat_rx = None;
-        if let Some(stream) = self.error_logcat_stream.take() {
-            stream.stop();
-        }
-        self.error_logcat_rx = None;
     }
 
     fn drain_logcat(&mut self) -> bool {
