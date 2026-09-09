@@ -8,7 +8,7 @@ use crate::ui_elements;
 use super::donut::show_usage_donut;
 
 pub fn ram_gauge_panel(ui: &mut egui::Ui, app: &App) {
-    if app.selected_serial.is_none() {
+    if app.roster.selected_serial.is_none() {
         ui_elements::panel_loading(ui);
         return;
     }

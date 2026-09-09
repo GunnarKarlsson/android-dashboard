@@ -7,7 +7,7 @@ use crate::ui_elements;
 
 pub fn devices_panel(ui: &mut egui::Ui, app: &mut App, icon: Option<egui::ImageSource<'static>>) {
     let mut refresh = false;
-    let refreshed_at = app.devices_refreshed_at;
+    let refreshed_at = app.roster.devices_refreshed_at;
     ui_elements::panel_with_custom_footer(
         ui,
         icon,
@@ -26,17 +26,17 @@ pub fn devices_panel(ui: &mut egui::Ui, app: &mut App, icon: Option<egui::ImageS
 }
 
 fn show_devices_body(ui: &mut egui::Ui, app: &mut App) {
-    if let Some(error) = &app.adb_error {
+    if let Some(error) = &app.roster.adb_error {
         ui_elements::error_label(ui, "ADB not available");
         ui.label(error);
         return;
     }
 
-    if let Some(error) = &app.list_error {
+    if let Some(error) = &app.roster.list_error {
         ui_elements::error_label(ui, error);
     }
 
-    if app.devices.is_empty() {
+    if app.roster.devices.is_empty() {
         ui.label("No devices found.");
         return;
     }
@@ -47,10 +47,10 @@ fn show_devices_body(ui: &mut egui::Ui, app: &mut App) {
         .max_height(ui.available_height())
         .show(ui, |ui| {
             ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
-                let device_count = app.devices.len();
+                let device_count = app.roster.devices.len();
                 for index in 0..device_count {
-                    let device = &app.devices[index];
-                    let selected = app.selected_serial.as_deref() == Some(device.serial.as_str());
+                    let device = &app.roster.devices[index];
+                    let selected = app.roster.selected_serial.as_deref() == Some(device.serial.as_str());
                     let label = format!("{}\n{}", device.model, device.serial);
 
                     if device.state == DeviceState::Device {
@@ -66,7 +66,7 @@ fn show_devices_body(ui: &mut egui::Ui, app: &mut App) {
                             )
                             .on_hover_cursor(egui::CursorIcon::PointingHand);
                         if response.clicked() && !selected {
-                            let serial = app.devices[index].serial.clone();
+                            let serial = app.roster.devices[index].serial.clone();
                             app.select_device(serial);
                         }
                     } else {

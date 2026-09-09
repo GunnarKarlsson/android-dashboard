@@ -24,7 +24,7 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> 
         app.remove_logcat_tag(index);
     }
 
-    if app.selected_serial.is_none() {
+    if app.roster.selected_serial.is_none() {
         ui_elements::panel_loading(ui);
         return 0;
     }
@@ -83,7 +83,7 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
         app.remove_error_logcat_tag(index);
     }
 
-    if app.selected_serial.is_none() {
+    if app.roster.selected_serial.is_none() {
         ui_elements::panel_loading(ui);
         return 0;
     }

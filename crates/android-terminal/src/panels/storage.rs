@@ -17,7 +17,7 @@ pub fn storage_usage_panel(ui: &mut egui::Ui, app: &App) {
     }
 
     ui_elements::panel_body(ui, theme::colors::MEMORY_DISK_BODY, |ui| {
-        if app.selected_serial.is_none() {
+        if app.roster.selected_serial.is_none() {
             ui_elements::panel_loading(ui);
             return;
         }
@@ -39,7 +39,7 @@ pub fn storage_usage_panel(ui: &mut egui::Ui, app: &App) {
 }
 
 pub fn storage_gauge_panel(ui: &mut egui::Ui, app: &App) {
-    if app.selected_serial.is_none() {
+    if app.roster.selected_serial.is_none() {
         ui_elements::panel_loading(ui);
         return;
     }

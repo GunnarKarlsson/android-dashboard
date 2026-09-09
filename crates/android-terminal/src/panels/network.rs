@@ -11,7 +11,7 @@ pub fn network_panel(ui: &mut egui::Ui, app: &App) {
         ui_elements::error_label(ui, error);
     }
 
-    if app.selected_serial.is_none() {
+    if app.roster.selected_serial.is_none() {
         ui_elements::panel_loading(ui);
         return;
     }

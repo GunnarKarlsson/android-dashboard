@@ -22,12 +22,6 @@ const INSIGHT_COOLDOWN: Duration = Duration::from_secs(30);
 const REPAINT_INTERVAL: Duration = Duration::from_millis(200);
 
 pub struct App {
-    pub adb_error: Option<String>,
-    pub devices: Vec<DeviceInfo>,
-    pub list_error: Option<String>,
-    pub devices_refreshed_at: Option<Instant>,
-    pub selected_serial: Option<String>,
-    #[allow(dead_code)]
     pub roster: DeviceRoster,
     pub logcat_rx: Option<Receiver<LogEntry>>,
     pub logcat_stream: Option<LogcatStream>,
@@ -290,11 +284,6 @@ impl App {
             None
         };
         let mut app = App {
-            adb_error: adb_error.clone(),
-            devices: devices.clone(),
-            list_error: list_error.clone(),
-            devices_refreshed_at,
-            selected_serial: None,
             roster: DeviceRoster {
                 adb_error,
                 devices,
@@ -337,7 +326,7 @@ impl App {
             insight_rx: None,
             insight_serial: None,
         };
-        if let Some(serial) = first_ready_serial(&app.devices) {
+        if let Some(serial) = first_ready_serial(&app.roster.devices) {
             app.select_device(serial);
         }
         app
@@ -363,48 +352,48 @@ impl App {
     }
 
     pub fn refresh_devices(&mut self) {
-        self.list_error = None;
-        self.devices_refreshed_at = Some(Instant::now());
+        self.roster.list_error = None;
+        self.roster.devices_refreshed_at = Some(Instant::now());
         match Adb::list_devices() {
             Ok(devices) => {
-                self.devices = devices;
-                if let Some(serial) = &self.selected_serial {
-                    let still_connected = self.devices.iter().any(|device| {
+                self.roster.devices = devices;
+                if let Some(serial) = &self.roster.selected_serial {
+                    let still_connected = self.roster.devices.iter().any(|device| {
                         device.serial == *serial && device.state == DeviceState::Device
                     });
                     if !still_connected {
                         self.deselect_device();
                     }
                 }
-                if self.selected_serial.is_none() {
-                    if let Some(serial) = first_ready_serial(&self.devices) {
+                if self.roster.selected_serial.is_none() {
+                    if let Some(serial) = first_ready_serial(&self.roster.devices) {
                         self.select_device(serial);
                     }
                 }
             }
-            Err(err) => self.list_error = Some(err.user_message()),
+            Err(err) => self.roster.list_error = Some(err.user_message()),
         }
     }
 
     pub fn select_device(&mut self, serial: String) {
-        if self.selected_serial.as_deref() == Some(serial.as_str()) {
+        if self.roster.selected_serial.as_deref() == Some(serial.as_str()) {
             return;
         }
 
         self.stop_streams();
         self.clear_device_data();
-        self.selected_serial = Some(serial.clone());
+        self.roster.selected_serial = Some(serial.clone());
         self.start_streams(&serial);
     }
 
     pub fn deselect_device(&mut self) {
-        if self.selected_serial.is_none() {
+        if self.roster.selected_serial.is_none() {
             return;
         }
 
         self.stop_streams();
         self.clear_device_data();
-        self.selected_serial = None;
+        self.roster.selected_serial = None;
     }
 
     pub fn shutdown(&mut self) {
@@ -495,7 +484,7 @@ impl App {
     }
 
     fn request_insight(&mut self) {
-        let Some(serial) = self.selected_serial.clone() else {
+        let Some(serial) = self.roster.selected_serial.clone() else {
             return;
         };
         if self.insight.status == InsightStatus::RequestSent {
@@ -503,6 +492,7 @@ impl App {
         }
 
         let model = self
+            .roster
             .devices
             .iter()
             .find(|device| device.serial == serial)
@@ -534,17 +524,18 @@ impl App {
 
     /// Queues an insight POST when recent errors settle or the digest changes.
     fn maybe_request_insight(&mut self) {
-        if self.selected_serial.is_none() {
+        if self.roster.selected_serial.is_none() {
             return;
         }
         if self.insight.status == InsightStatus::RequestSent {
             return;
         }
 
-        let Some(serial) = self.selected_serial.clone() else {
+        let Some(serial) = self.roster.selected_serial.clone() else {
             return;
         };
         let model = self
+            .roster
             .devices
             .iter()
             .find(|device| device.serial == serial)
@@ -610,7 +601,7 @@ impl App {
             if self.insight_serial.as_deref() != Some(serial) {
                 continue;
             }
-            if self.selected_serial.as_deref() != Some(serial) {
+            if self.roster.selected_serial.as_deref() != Some(serial) {
                 continue;
             }
             match update {
@@ -891,7 +882,7 @@ impl App {
         if needs_repaint {
             ctx.request_repaint();
         }
-        if self.selected_serial.is_some() {
+        if self.roster.selected_serial.is_some() {
             ctx.request_repaint_after(REPAINT_INTERVAL);
         }
     }

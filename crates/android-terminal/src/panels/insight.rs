@@ -11,7 +11,7 @@ const REPLY_SEPARATOR_GAP: f32 = 4.0;
 
 /// Draws the insight body and returns the number of text lines in the reply area.
 pub fn insight_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usize {
-    if app.selected_serial.is_none() {
+    if app.roster.selected_serial.is_none() {
         ui_elements::panel_loading(ui);
         return 0;
     }
