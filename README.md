@@ -134,3 +134,46 @@ Expected response format from API:
   ]
 }
 ```
+
+## Commands Used by App
+
+Every subprocess the app starts is `adb` on `PATH`. Device-side work is always `adb -s <serial> …`.
+
+### Host / session
+
+| Command | When |
+| --- | --- |
+| `adb version` | Startup (`Adb::check_available`) |
+| `adb devices -l` | Startup, then Refresh in the devices panel |
+| `adb -s <serial> shell getprop ro.product.model` | During device listing, only if `devices -l` had no `model:` field |
+
+### While a device is selected
+
+Selecting a device starts two logcat processes plus several pollers.
+
+Streaming (stay running until the device is deselected):
+
+- `adb -s <serial> logcat -v threadtime` — full logcat
+- `adb -s <serial> logcat -v threadtime *:E` — Error/Fatal only
+
+| Command | Interval | Used for |
+| --- | --- | --- |
+| `adb -s <serial> shell cat /proc/meminfo` | 2s (backoff to 5s on error) | RAM gauge |
+| `adb -s <serial> shell df -k /storage/emulated/0` | 10s (backoff to 30s) | Storage donut totals |
+| `adb -s <serial> shell du -sb /storage/emulated/0/DCIM /storage/emulated/0/Pictures /storage/emulated/0/Movies /storage/emulated/0/Music /storage/emulated/0/Podcasts /storage/emulated/0/Audiobooks /storage/emulated/0/Ringtones /storage/emulated/0/Documents /storage/emulated/0/Download /storage/emulated/0/Android` | 30s | Storage category breakdown |
+| `adb -s <serial> shell cat /proc/net/dev` | 1s (backoff to 5s) | Interface bytes / rates |
+| `adb -s <serial> shell dumpsys netstats detail` | On first network poll, then every 10s or when a new iface appears | Map iface → WiFi/Mobile/Ethernet |
+| `adb -s <serial> shell pm list packages -U` | 2s (backoff to 5s on error) | UID → package for per-app traffic |
+| `adb -s <serial> shell dumpsys netstats --uid` | 2s (same poll and backoff as above) | Per-app traffic |
+| `adb -s <serial> shell pm list packages` | On select, then 60s after each scan completes | App list for storage sizes |
+| `adb -s <serial> shell sh -c '<batch>'` | Batches of 20 packages during that scan | Per-app storage stats |
+
+The `<batch>` argument to `sh -c` is the below per package, joined with `; `
+
+```sh
+pkg='com.example.app'; printf '@PKG@%s\n' "$pkg"; cmd package get-package-storage-stats "$pkg" 2>/dev/null || true
+```
+
+Nothing is written to the device.
+
+Closing the window kills the `adb logcat` children and signals pollers to stop. An `adb` command already in flight is not killed; it finishes, then the process exits. The app does not stop the adb server.
