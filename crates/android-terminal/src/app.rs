@@ -451,17 +451,9 @@ impl App {
                 self.logcat_stream = Some(stream);
             }
             Err(err) => {
-                self.logcat.error = Some(err.user_message());
-            }
-        }
-
-        match LogcatStream::spawn_errors(serial) {
-            Ok((rx, stream)) => {
-                self.error_logcat_rx = Some(rx);
-                self.error_logcat_stream = Some(stream);
-            }
-            Err(err) => {
-                self.logcat_errors.error = Some(err.user_message());
+                let message = err.user_message();
+                self.logcat.error = Some(message.clone());
+                self.logcat_errors.error = Some(message);
             }
         }
 
@@ -747,22 +739,18 @@ impl App {
 
     fn drain_logcat(&mut self) -> bool {
         let entries = take_log_entries(self.logcat_rx.as_ref());
-        ingest_log_entries(&mut self.logcat, &entries)
-    }
-
-    fn drain_error_logcat(&mut self) -> bool {
-        let entries = take_log_entries(self.error_logcat_rx.as_ref());
         let flush_pending =
             self.logcat_errors.auto_update_feed && !self.logcat_errors.pending.is_empty();
         let accept_errors_only = self.logcat_errors.accept_errors_only;
         let accepted_entry = entries
             .iter()
             .any(|entry| !accept_errors_only || entry.is_error_level());
-        let updated = ingest_log_entries(&mut self.logcat_errors, &entries);
+        let updated_all = ingest_log_entries(&mut self.logcat, &entries);
+        let updated_errors = ingest_log_entries(&mut self.logcat_errors, &entries);
         if flush_pending || accepted_entry {
             self.insight.last_error_at = Some(Instant::now());
         }
-        updated
+        updated_all || updated_errors
     }
 
     fn drain_network(&mut self) -> bool {
@@ -913,9 +901,6 @@ impl App {
     pub fn tick(&mut self, ctx: &egui::Context) {
         let mut needs_repaint = false;
         if self.drain_logcat() {
-            needs_repaint = true;
-        }
-        if self.drain_error_logcat() {
             needs_repaint = true;
         }
         if self.drain_ram() {

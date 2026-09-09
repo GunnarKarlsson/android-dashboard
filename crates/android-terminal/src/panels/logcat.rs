@@ -122,7 +122,7 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
         ui_elements::error_label(ui, error);
     }
 
-    if app.error_logcat_rx.is_none() {
+    if app.logcat_rx.is_none() {
         ui_elements::panel_loading(ui);
         return 0;
     }
