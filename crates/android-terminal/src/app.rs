@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
 use adb_client::{
@@ -12,9 +12,11 @@ use crossbeam_channel::Receiver;
 use eframe::egui;
 
 use crate::logcat_pane::{add_tag_filter, remove_tag_filter};
+use crate::metrics::MetricStore;
 use crate::roster::{first_ready_serial, DeviceRoster, RosterEvent};
 
 pub use crate::logcat_pane::{CachedLogLine, LogcatPane, LogcatTagFilter};
+pub use crate::metrics::AppStorageState;
 
 const MAX_DRAIN_PER_FRAME: usize = 500;
 const MAX_INSIGHTS: usize = 100;
@@ -49,6 +51,8 @@ pub struct App {
     pub storage_gauge_poller: Option<StorageGaugePoller>,
     pub storage_gauge: Option<StorageOverview>,
     pub storage_gauge_error: Option<String>,
+    #[allow(dead_code)]
+    pub metrics: MetricStore,
     pub insight_auto_update_feed: bool,
     pub logcat: LogcatPane,
     pub logcat_errors: LogcatPane,
@@ -85,48 +89,6 @@ impl Default for InsightState {
             ever_succeeded: false,
             generation: 0,
         }
-    }
-}
-
-#[derive(Default)]
-pub struct AppStorageState {
-    pub packages: Vec<String>,
-    pub sizes: HashMap<String, u64>,
-    pub scanning: bool,
-    pub error: Option<String>,
-}
-
-impl AppStorageState {
-    pub fn set_packages(&mut self, packages: Vec<String>) {
-        self.packages = packages;
-        self.sizes.clear();
-        self.scanning = true;
-    }
-
-    pub fn merge_packages(&mut self, packages: Vec<String>) {
-        self.packages = packages;
-        self.sizes
-            .retain(|package, _| self.packages.iter().any(|pkg| pkg == package));
-        self.scanning = true;
-    }
-
-    pub fn set_size(&mut self, package: &str, bytes: u64) {
-        self.sizes.insert(package.to_string(), bytes);
-    }
-
-    pub fn sorted_rows(&self) -> Vec<(&str, Option<u64>)> {
-        let mut rows: Vec<(&str, Option<u64>)> = self
-            .packages
-            .iter()
-            .map(|pkg| (pkg.as_str(), self.sizes.get(pkg).copied()))
-            .collect();
-        rows.sort_by(|a, b| match (a.1, b.1) {
-            (Some(left), Some(right)) => right.cmp(&left),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => a.0.cmp(b.0),
-        });
-        rows
     }
 }
 
@@ -174,6 +136,7 @@ impl App {
             storage_gauge_poller: None,
             storage_gauge: None,
             storage_gauge_error: None,
+            metrics: MetricStore::default(),
             insight_auto_update_feed: true,
             logcat: LogcatPane::default(),
             logcat_errors: LogcatPane {
