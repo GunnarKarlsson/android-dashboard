@@ -56,7 +56,7 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, pane: &mut LogcatPane, auto_scroll
     ui_elements::filter_row(ui, |ui| {
         ui.label("Tag filter:");
         let response =
-            ui_elements::tag_filter_input(ui, &mut pane.tag_input, "error_logcat_tag_input");
+            ui_elements::tag_filter_input(ui, &mut pane.tag_input, "logcat_errors_tag_input");
         if response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
             pane.add_tag();
             response.request_focus();

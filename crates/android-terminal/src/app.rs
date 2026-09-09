@@ -16,9 +16,9 @@ const REPAINT_INTERVAL: Duration = Duration::from_millis(200);
 pub struct App {
     pub roster: DeviceRoster,
     session: DeviceSession,
-    pub metrics: MetricStore,
     pub logcat: LogcatPane,
     pub logcat_errors: LogcatPane,
+    pub metrics: MetricStore,
     pub insight: InsightController,
 }
 
@@ -42,12 +42,12 @@ impl App {
                 selected_serial: None,
             },
             session: DeviceSession::default(),
-            metrics: MetricStore::default(),
             logcat: LogcatPane::default(),
             logcat_errors: LogcatPane {
                 accept_errors_only: true,
                 ..LogcatPane::default()
             },
+            metrics: MetricStore::default(),
             insight: InsightController::default(),
         };
         if let Some(serial) = first_ready_serial(&app.roster.devices) {
@@ -70,7 +70,7 @@ impl App {
         }
 
         self.session.stop();
-        self.clear_device_data();
+        self.clear_view_state();
         self.roster.selected_serial = Some(serial.clone());
         let errors = self.session.start(&serial);
         self.apply_start_errors(errors);
@@ -82,7 +82,7 @@ impl App {
         }
 
         self.session.stop();
-        self.clear_device_data();
+        self.clear_view_state();
         self.roster.selected_serial = None;
     }
 
@@ -108,31 +108,34 @@ impl App {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn has_logcat(&self) -> bool {
-        self.session.has_logcat()
-    }
-
-    #[allow(dead_code)]
-    pub fn has_network(&self) -> bool {
-        self.session.has_network()
-    }
-
-    #[allow(dead_code)]
-    pub fn has_protocol(&self) -> bool {
-        self.session.has_protocol()
-    }
-
-    #[allow(dead_code)]
-    pub fn has_storage_breakdown(&self) -> bool {
-        self.session.has_storage_breakdown()
-    }
-
-    fn clear_device_data(&mut self) {
+    /// Resets logcat panes, metric snapshots, and insight request state.
+    fn clear_view_state(&mut self) {
         self.logcat.reset_view();
         self.logcat_errors.reset_view();
         self.metrics = MetricStore::default();
         self.insight.reset();
+    }
+
+    pub fn tick(&mut self, ctx: &egui::Context) {
+        let outcome = self.session.drain_into(
+            &mut self.logcat,
+            &mut self.logcat_errors,
+            &mut self.metrics,
+        );
+        if outcome.error_accepted {
+            self.insight.note_error();
+        }
+        let mut needs_repaint = outcome.ui_changed;
+        if self.insight.drain(self.roster.selected_serial.as_deref()) {
+            needs_repaint = true;
+        }
+        self.maybe_request_insight();
+        if needs_repaint {
+            ctx.request_repaint();
+        }
+        if self.roster.selected_serial.is_some() {
+            ctx.request_repaint_after(REPAINT_INTERVAL);
+        }
     }
 
     /// Queues an insight POST when recent errors settle or the digest changes.
@@ -153,32 +156,6 @@ impl App {
         {
             self.insight
                 .request(&serial, &model, self.logcat_errors.insight_lines());
-        }
-    }
-
-    fn drain_insight(&mut self) -> bool {
-        self.insight.drain(self.roster.selected_serial.as_deref())
-    }
-
-    pub fn tick(&mut self, ctx: &egui::Context) {
-        let outcome = self.session.drain_into(
-            &mut self.logcat,
-            &mut self.logcat_errors,
-            &mut self.metrics,
-        );
-        if outcome.error_accepted {
-            self.insight.note_error();
-        }
-        let mut needs_repaint = outcome.ui_changed;
-        if self.drain_insight() {
-            needs_repaint = true;
-        }
-        self.maybe_request_insight();
-        if needs_repaint {
-            ctx.request_repaint();
-        }
-        if self.roster.selected_serial.is_some() {
-            ctx.request_repaint_after(REPAINT_INTERVAL);
         }
     }
 }

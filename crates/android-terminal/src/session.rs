@@ -188,22 +188,6 @@ impl DeviceSession {
         }
     }
 
-    pub(crate) fn has_logcat(&self) -> bool {
-        self.logcat_rx.is_some()
-    }
-
-    pub(crate) fn has_network(&self) -> bool {
-        self.network_rx.is_some()
-    }
-
-    pub(crate) fn has_protocol(&self) -> bool {
-        self.protocol_rx.is_some()
-    }
-
-    pub(crate) fn has_storage_breakdown(&self) -> bool {
-        self.storage_breakdown_rx.is_some()
-    }
-
     pub(crate) fn has_app_storage(&self) -> bool {
         self.app_storage_rx.is_some()
     }
