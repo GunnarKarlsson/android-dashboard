@@ -70,6 +70,8 @@ pub struct App {
     pub logcat_tag_filters: Vec<LogcatTagFilter>,
     pub error_logcat_tag_input: String,
     pub error_logcat_tag_filters: Vec<LogcatTagFilter>,
+    pub logcat: LogcatPane,
+    pub logcat_errors: LogcatPane,
     pub insight: InsightState,
     insight_rx: Option<Receiver<InsightUpdate>>,
     insight_serial: Option<String>,
@@ -152,6 +154,35 @@ impl AppStorageState {
 pub struct LogcatTagFilter {
     pub tag: String,
     pub color_index: usize,
+}
+
+/// Visible ring buffer, pending ring buffer, and filter state for one logcat pane.
+pub struct LogcatPane {
+    pub lines: VecDeque<CachedLogLine>,
+    pub pending: VecDeque<CachedLogLine>,
+    pub filter: String,
+    pub tag_input: String,
+    pub tag_filters: Vec<LogcatTagFilter>,
+    pub auto_update_feed: bool,
+    pub show_timestamps: bool,
+    pub error: Option<String>,
+    pub accept_errors_only: bool,
+}
+
+impl Default for LogcatPane {
+    fn default() -> Self {
+        Self {
+            lines: VecDeque::new(),
+            pending: VecDeque::new(),
+            filter: String::new(),
+            tag_input: String::new(),
+            tag_filters: Vec::new(),
+            auto_update_feed: true,
+            show_timestamps: true,
+            error: None,
+            accept_errors_only: false,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -265,6 +296,11 @@ impl App {
             logcat_tag_filters: Vec::new(),
             error_logcat_tag_input: String::new(),
             error_logcat_tag_filters: Vec::new(),
+            logcat: LogcatPane::default(),
+            logcat_errors: LogcatPane {
+                accept_errors_only: true,
+                ..LogcatPane::default()
+            },
             insight: InsightState::default(),
             insight_rx: None,
             insight_serial: None,
