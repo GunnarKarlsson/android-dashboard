@@ -103,25 +103,11 @@ impl LogcatStream {
     /// Spawns `adb -s <serial> logcat -v threadtime` with no filter args and returns a
     /// receiver of parsed entries.
     pub fn spawn(serial: &str) -> Result<(Receiver<LogEntry>, Self), AdbError> {
+        let serial = serial.to_string();
+        let child = spawn_logcat_child(&serial)?;
+
         let (entry_tx, entry_rx) = crossbeam_channel::unbounded();
         let (stop_tx, stop_rx) = crossbeam_channel::unbounded();
-        let serial = serial.to_string();
-
-        let child = match spawn_logcat_child(&serial) {
-            Ok(child) => child,
-            Err(err) => {
-                let _ = entry_tx.send(LogEntry::raw(format!("logcat error: {err}")));
-                return Ok((
-                    entry_rx,
-                    LogcatStream {
-                        stop_tx,
-                        child: None,
-                        join_handle: None,
-                    },
-                ));
-            }
-        };
-
         let child = Arc::new(std::sync::Mutex::new(child));
         let reader_child = child.clone();
         let join_handle = thread::spawn(move || {
