@@ -10,14 +10,8 @@ use crate::ui_elements;
 pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usize {
     ui_elements::filter_row(ui, |ui| {
         ui.label("Tag filter:");
-        let response = ui
-            .add(
-                egui::TextEdit::singleline(&mut app.logcat.tag_input)
-                    .hint_text("Add tag filter…")
-                    .desired_width(ui.available_width())
-                    .id_salt("logcat_tag_input"),
-            )
-            .on_hover_text("Press Enter to add a tag filter");
+        let response =
+            ui_elements::tag_filter_input(ui, &mut app.logcat.tag_input, "logcat_tag_input");
         if response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
             app.add_logcat_tag();
             response.request_focus();
@@ -72,14 +66,11 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> 
 pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usize {
     ui_elements::filter_row(ui, |ui| {
         ui.label("Tag filter:");
-        let response = ui
-            .add(
-                egui::TextEdit::singleline(&mut app.logcat_errors.tag_input)
-                    .hint_text("Add tag filter…")
-                    .desired_width(ui.available_width())
-                    .id_salt("error_logcat_tag_input"),
-            )
-            .on_hover_text("Press Enter to add a tag filter");
+        let response = ui_elements::tag_filter_input(
+            ui,
+            &mut app.logcat_errors.tag_input,
+            "error_logcat_tag_input",
+        );
         if response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
             app.add_error_logcat_tag();
             response.request_focus();
