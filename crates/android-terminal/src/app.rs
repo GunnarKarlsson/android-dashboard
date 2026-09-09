@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
 use adb_client::{
@@ -14,6 +13,7 @@ use crate::logcat_pane::{add_tag_filter, remove_tag_filter};
 use crate::metrics::MetricStore;
 use crate::roster::{first_ready_serial, DeviceRoster, RosterEvent};
 
+pub use crate::insight::{InsightState, InsightStatus};
 pub use crate::logcat_pane::{CachedLogLine, LogcatPane, LogcatTagFilter};
 pub use crate::metrics::AppStorageState;
 
@@ -46,37 +46,6 @@ pub struct App {
     pub insight: InsightState,
     insight_rx: Option<Receiver<InsightUpdate>>,
     insight_serial: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InsightStatus {
-    Idle,
-    RequestSent,
-    RequestFailed,
-}
-
-pub struct InsightState {
-    pub status: InsightStatus,
-    pub replies: VecDeque<String>,
-    last_analyze: Option<Instant>,
-    last_error_at: Option<Instant>,
-    last_sent_key: Option<String>,
-    ever_succeeded: bool,
-    generation: u64,
-}
-
-impl Default for InsightState {
-    fn default() -> Self {
-        Self {
-            status: InsightStatus::Idle,
-            replies: VecDeque::new(),
-            last_analyze: None,
-            last_error_at: None,
-            last_sent_key: None,
-            ever_succeeded: false,
-            generation: 0,
-        }
-    }
 }
 
 impl App {
