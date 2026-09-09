@@ -57,8 +57,8 @@ The dashboard shows the following data in widgets:
 | Devices | Connected emulators and USB devices. |
 | RAM | Live memory usage. |
 | Storage | Live internal storage. |
-| Logcat | Streaming logcat for the selected device. Filter by tag. |
-| Logcat Errors | Logcat but only errors and fatals. Filter by tag. |
+| Logcat | Streaming logcat for the selected device. Filter by tag. Pause and timestamps are independent of Logcat Errors. |
+| Logcat Errors | The same live stream, Error and Fatal only. Tag filter, pause, and timestamps are independent of Logcat. |
 | Insight | An LLM's opinion on the error logs. See [AI insights](#ai-insights) for details. |
 | Storage Details | Directory totals and per-app storage. |
 | Network Activity | Per-interface RX/TX totals and current down/up rates. |
@@ -149,12 +149,11 @@ Every subprocess the app starts runs `adb` on `PATH`. Device-specific commands a
 
 ### While a device is selected
 
-Selecting a device starts two logcat processes plus several pollers.
+Selecting a device starts one logcat process plus several pollers.
 
 Streaming (stays running until the device is deselected):
 
-- `adb -s <serial> logcat -v threadtime` — full logcat
-- `adb -s <serial> logcat -v threadtime *:E` — Error/Fatal only
+- `adb -s <serial> logcat -v threadtime` — full logcat; Logcat Errors is a view of this stream (Error/Fatal only)
 
 
 | Command | Interval | Used for |
@@ -177,4 +176,4 @@ pkg='com.example.app'; printf '@PKG@%s\n' "$pkg"; cmd package get-package-storag
 
 Nothing is written to the device.
 
-Closing the window kills the `adb logcat` children and signals pollers to stop. An `adb` command already in flight is not killed; it finishes, then the process exits. The app does not stop the adb server.
+Closing the window kills the `adb logcat` child and signals pollers to stop. An `adb` command already in flight is not killed; it finishes, then the process exits. The app does not stop the adb server.
