@@ -1,60 +1,74 @@
 use adb_client::DeviceState;
 use eframe::egui;
 
-use crate::app::App;
+use crate::roster::DeviceRoster;
 use crate::theme;
 use crate::ui_elements;
 
-pub fn devices_panel(ui: &mut egui::Ui, app: &mut App, icon: Option<egui::ImageSource<'static>>) {
+pub enum DevicesAction {
+    Refresh,
+    Select(String),
+}
+
+pub fn devices_panel(
+    ui: &mut egui::Ui,
+    roster: &DeviceRoster,
+    icon: Option<egui::ImageSource<'static>>,
+) -> Option<DevicesAction> {
     let mut refresh = false;
-    let refreshed_at = app.devices_refreshed_at;
+    let mut selected = None;
+    let refreshed_at = roster.devices_refreshed_at;
     ui_elements::panel_with_custom_footer(
         ui,
         icon,
         "Devices",
         |_| {},
         |ui| {
-            show_devices_body(ui, app);
+            selected = show_devices_body(ui, roster);
         },
         |ui| {
             refresh = ui_elements::devices_footer(ui, refreshed_at);
         },
     );
     if refresh {
-        app.refresh_devices();
+        Some(DevicesAction::Refresh)
+    } else {
+        selected.map(DevicesAction::Select)
     }
 }
 
-fn show_devices_body(ui: &mut egui::Ui, app: &mut App) {
-    if let Some(error) = &app.adb_error {
+fn show_devices_body(ui: &mut egui::Ui, roster: &DeviceRoster) -> Option<String> {
+    if let Some(error) = &roster.adb_error {
         ui_elements::error_label(ui, "ADB not available");
         ui.label(error);
-        return;
+        return None;
     }
 
-    if let Some(error) = &app.list_error {
+    if let Some(error) = &roster.list_error {
         ui_elements::error_label(ui, error);
     }
 
-    if app.devices.is_empty() {
+    if roster.devices.is_empty() {
         ui.label("No devices found.");
-        return;
+        return None;
     }
 
+    let mut selected = None;
     egui::ScrollArea::vertical()
         .id_salt(egui::Id::new("device_list"))
         .auto_shrink([false, false])
         .max_height(ui.available_height())
         .show(ui, |ui| {
             ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
-                let device_count = app.devices.len();
+                let device_count = roster.devices.len();
                 for index in 0..device_count {
-                    let device = &app.devices[index];
-                    let selected = app.selected_serial.as_deref() == Some(device.serial.as_str());
+                    let device = &roster.devices[index];
+                    let is_selected =
+                        roster.selected_serial.as_deref() == Some(device.serial.as_str());
                     let label = format!("{}\n{}", device.model, device.serial);
 
                     if device.state == DeviceState::Device {
-                        let color = if selected {
+                        let color = if is_selected {
                             theme::colors::OFF_WHITE
                         } else {
                             theme::colors::HEADER_ICON
@@ -65,9 +79,8 @@ fn show_devices_body(ui: &mut egui::Ui, app: &mut App) {
                                     .sense(egui::Sense::click()),
                             )
                             .on_hover_cursor(egui::CursorIcon::PointingHand);
-                        if response.clicked() && !selected {
-                            let serial = app.devices[index].serial.clone();
-                            app.select_device(serial);
+                        if response.clicked() && !is_selected {
+                            selected = Some(roster.devices[index].serial.clone());
                         }
                     } else {
                         ui.add_enabled_ui(false, |ui| {
@@ -82,6 +95,7 @@ fn show_devices_body(ui: &mut egui::Ui, app: &mut App) {
                 }
             });
         });
+    selected
 }
 
 fn device_state_label(state: &DeviceState) -> &str {

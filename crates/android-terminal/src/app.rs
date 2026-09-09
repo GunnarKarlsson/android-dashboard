@@ -1,278 +1,25 @@
-use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
-use adb_client::{
-    Adb, AppStoragePoller, AppStorageUpdate, DeviceInfo, DeviceState, LogEntry, LogcatStream,
-    MemoryStats, NetworkPoller, NetworkStats, NetworkUpdate, ProtocolPoller, ProtocolStats,
-    ProtocolUpdate, RamPoller, RamUpdate, StorageBreakdown, StorageBreakdownPoller,
-    StorageBreakdownUpdate, StorageGaugePoller, StorageGaugeUpdate, StorageOverview,
-};
-use ai_insight::{build_snapshot, spawn_insight, InsightLine, InsightUpdate, LevelMask};
-use crossbeam_channel::Receiver;
+use adb_client::DeviceInfo;
 use eframe::egui;
 
-use crate::ui_elements;
+use crate::metrics::MetricStore;
+use crate::roster::{first_ready_serial, DeviceRoster, RosterEvent};
+use crate::session::{DeviceSession, SessionStartErrors};
 
-pub const MAX_LOG_LINES: usize = 10_000;
-const MAX_DRAIN_PER_FRAME: usize = 500;
-const MAX_INSIGHTS: usize = 100;
-const INSIGHT_SETTLE: Duration = Duration::from_secs(5);
-const INSIGHT_COOLDOWN: Duration = Duration::from_secs(30);
+pub use crate::insight::{InsightController, InsightStatus};
+pub use crate::logcat_pane::{CachedLogLine, LogcatPane, LogcatTagFilter};
+pub use crate::metrics::PackageStorageState;
+
 const REPAINT_INTERVAL: Duration = Duration::from_millis(200);
 
 pub struct App {
-    pub adb_error: Option<String>,
-    pub devices: Vec<DeviceInfo>,
-    pub list_error: Option<String>,
-    pub devices_refreshed_at: Option<Instant>,
-    pub selected_serial: Option<String>,
-    pub logcat_rx: Option<Receiver<LogEntry>>,
-    pub logcat_stream: Option<LogcatStream>,
-    pub network_rx: Option<Receiver<NetworkUpdate>>,
-    pub network_poller: Option<NetworkPoller>,
-    pub protocol_rx: Option<Receiver<ProtocolUpdate>>,
-    pub protocol_poller: Option<ProtocolPoller>,
-    pub network_stats: Option<NetworkStats>,
-    pub network_error: Option<String>,
-    pub protocol_stats: Option<ProtocolStats>,
-    pub protocol_error: Option<String>,
-    pub app_storage_rx: Option<Receiver<AppStorageUpdate>>,
-    pub app_storage_poller: Option<AppStoragePoller>,
-    pub app_storage: AppStorageState,
-    pub storage_breakdown_rx: Option<Receiver<StorageBreakdownUpdate>>,
-    pub storage_breakdown_poller: Option<StorageBreakdownPoller>,
-    pub storage_breakdown: Option<StorageBreakdown>,
-    pub storage_breakdown_error: Option<String>,
-    pub ram_rx: Option<Receiver<RamUpdate>>,
-    pub ram_poller: Option<RamPoller>,
-    pub ram_memory: Option<MemoryStats>,
-    pub ram_error: Option<String>,
-    pub storage_gauge_rx: Option<Receiver<StorageGaugeUpdate>>,
-    pub storage_gauge_poller: Option<StorageGaugePoller>,
-    pub storage_gauge: Option<StorageOverview>,
-    pub storage_gauge_error: Option<String>,
-    pub insight_auto_update_feed: bool,
+    pub roster: DeviceRoster,
+    session: DeviceSession,
     pub logcat: LogcatPane,
     pub logcat_errors: LogcatPane,
-    pub insight: InsightState,
-    insight_rx: Option<Receiver<InsightUpdate>>,
-    insight_serial: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InsightStatus {
-    Idle,
-    RequestSent,
-    RequestFailed,
-}
-
-pub struct InsightState {
-    pub status: InsightStatus,
-    pub replies: VecDeque<String>,
-    last_analyze: Option<Instant>,
-    last_error_at: Option<Instant>,
-    last_sent_key: Option<String>,
-    ever_succeeded: bool,
-    generation: u64,
-}
-
-impl Default for InsightState {
-    fn default() -> Self {
-        Self {
-            status: InsightStatus::Idle,
-            replies: VecDeque::new(),
-            last_analyze: None,
-            last_error_at: None,
-            last_sent_key: None,
-            ever_succeeded: false,
-            generation: 0,
-        }
-    }
-}
-
-#[derive(Default)]
-pub struct AppStorageState {
-    pub packages: Vec<String>,
-    pub sizes: HashMap<String, u64>,
-    pub scanning: bool,
-    pub error: Option<String>,
-}
-
-impl AppStorageState {
-    pub fn set_packages(&mut self, packages: Vec<String>) {
-        self.packages = packages;
-        self.sizes.clear();
-        self.scanning = true;
-    }
-
-    pub fn merge_packages(&mut self, packages: Vec<String>) {
-        self.packages = packages;
-        self.sizes
-            .retain(|package, _| self.packages.iter().any(|pkg| pkg == package));
-        self.scanning = true;
-    }
-
-    pub fn set_size(&mut self, package: &str, bytes: u64) {
-        self.sizes.insert(package.to_string(), bytes);
-    }
-
-    pub fn sorted_rows(&self) -> Vec<(&str, Option<u64>)> {
-        let mut rows: Vec<(&str, Option<u64>)> = self
-            .packages
-            .iter()
-            .map(|pkg| (pkg.as_str(), self.sizes.get(pkg).copied()))
-            .collect();
-        rows.sort_by(|a, b| match (a.1, b.1) {
-            (Some(left), Some(right)) => right.cmp(&left),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => a.0.cmp(b.0),
-        });
-        rows
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct LogcatTagFilter {
-    pub tag: String,
-    pub color_index: usize,
-}
-
-/// Visible ring buffer, pending ring buffer, and filter state for one logcat pane.
-pub struct LogcatPane {
-    pub lines: VecDeque<CachedLogLine>,
-    pub pending: VecDeque<CachedLogLine>,
-    pub tag_input: String,
-    pub tag_filters: Vec<LogcatTagFilter>,
-    pub auto_update_feed: bool,
-    pub show_timestamps: bool,
-    pub error: Option<String>,
-    pub accept_errors_only: bool,
-}
-
-impl Default for LogcatPane {
-    fn default() -> Self {
-        Self {
-            lines: VecDeque::new(),
-            pending: VecDeque::new(),
-            tag_input: String::new(),
-            tag_filters: Vec::new(),
-            auto_update_feed: true,
-            show_timestamps: true,
-            error: None,
-            accept_errors_only: false,
-        }
-    }
-}
-
-impl LogcatPane {
-    /// Clears lines, pending, tags, and error, and turns auto-update on.
-    /// Leaves `accept_errors_only` and `show_timestamps` unchanged.
-    fn reset_view(&mut self) {
-        self.lines.clear();
-        self.pending.clear();
-        self.tag_input.clear();
-        self.tag_filters.clear();
-        self.auto_update_feed = true;
-        self.error = None;
-    }
-
-    /// Appends `entry` to the visible ring buffer when auto-update is on, or to the pending
-    /// ring buffer when it is off.
-    ///
-    /// Skips the entry when `accept_errors_only` is set and the entry is not Error or Fatal.
-    /// Returns true when the visible ring buffer changed.
-    fn append_entry(&mut self, entry: &LogEntry) -> bool {
-        if self.accept_errors_only && !entry.is_error_level() {
-            return false;
-        }
-
-        if self.auto_update_feed {
-            self.flush_pending();
-            self.lines.push_back(CachedLogLine::from_entry(entry));
-            trim_buffer(&mut self.lines);
-            true
-        } else {
-            self.pending.push_back(CachedLogLine::from_entry(entry));
-            trim_buffer(&mut self.pending);
-            false
-        }
-    }
-
-    /// Moves pending lines onto the visible ring buffer. Returns true if any line was moved.
-    fn flush_pending(&mut self) -> bool {
-        if self.pending.is_empty() {
-            return false;
-        }
-
-        self.lines.extend(self.pending.drain(..));
-        trim_buffer(&mut self.lines);
-        true
-    }
-
-    /// Returns log lines from the visible ring buffer followed by the pending ring buffer.
-    fn insight_lines(&self) -> impl Iterator<Item = InsightLine> + '_ {
-        self.lines
-            .iter()
-            .chain(self.pending.iter())
-            .map(CachedLogLine::to_insight_line)
-    }
-}
-
-#[derive(Clone)]
-pub struct CachedLogLine {
-    full: String,
-    compact: String,
-    pub level: char,
-    pub tag: String,
-    pub message: String,
-    pub received_at: Instant,
-}
-
-impl CachedLogLine {
-    pub fn from_entry(entry: &LogEntry) -> Self {
-        CachedLogLine {
-            full: entry.format_line_with_timestamp(true),
-            compact: entry.format_line_with_timestamp(false),
-            level: entry.level,
-            tag: entry.tag.clone(),
-            message: entry.message.clone(),
-            received_at: Instant::now(),
-        }
-    }
-
-    /// Builds an `InsightLine` from this cached log line.
-    fn to_insight_line(&self) -> InsightLine {
-        InsightLine {
-            received_at: self.received_at,
-            level: self.level,
-            tag: self.tag.clone(),
-            message: self.message.clone(),
-        }
-    }
-
-    pub fn display(&self, show_timestamp: bool) -> &str {
-        if show_timestamp {
-            &self.full
-        } else {
-            &self.compact
-        }
-    }
-
-    pub fn matches_tag_filters(
-        &self,
-        tag_filters: &[LogcatTagFilter],
-        show_timestamps: bool,
-    ) -> bool {
-        if tag_filters.is_empty() {
-            return true;
-        }
-
-        let display = self.display(show_timestamps).to_lowercase();
-        tag_filters
-            .iter()
-            .all(|filter| display.contains(&filter.tag.to_lowercase()))
-    }
+    pub metrics: MetricStore,
+    pub insight: InsightController,
 }
 
 impl App {
@@ -287,665 +34,128 @@ impl App {
             None
         };
         let mut app = App {
-            adb_error,
-            devices,
-            list_error,
-            devices_refreshed_at,
-            selected_serial: None,
-            logcat_rx: None,
-            logcat_stream: None,
-            network_rx: None,
-            network_poller: None,
-            protocol_rx: None,
-            protocol_poller: None,
-            network_stats: None,
-            network_error: None,
-            protocol_stats: None,
-            protocol_error: None,
-            app_storage_rx: None,
-            app_storage_poller: None,
-            app_storage: AppStorageState::default(),
-            storage_breakdown_rx: None,
-            storage_breakdown_poller: None,
-            storage_breakdown: None,
-            storage_breakdown_error: None,
-            ram_rx: None,
-            ram_poller: None,
-            ram_memory: None,
-            ram_error: None,
-            storage_gauge_rx: None,
-            storage_gauge_poller: None,
-            storage_gauge: None,
-            storage_gauge_error: None,
-            insight_auto_update_feed: true,
+            roster: DeviceRoster {
+                adb_error,
+                devices,
+                list_error,
+                devices_refreshed_at,
+                selected_serial: None,
+            },
+            session: DeviceSession::default(),
             logcat: LogcatPane::default(),
             logcat_errors: LogcatPane {
                 accept_errors_only: true,
                 ..LogcatPane::default()
             },
-            insight: InsightState::default(),
-            insight_rx: None,
-            insight_serial: None,
+            metrics: MetricStore::default(),
+            insight: InsightController::default(),
         };
-        if let Some(serial) = first_ready_serial(&app.devices) {
+        if let Some(serial) = first_ready_serial(&app.roster.devices) {
             app.select_device(serial);
         }
         app
     }
 
-    pub fn add_logcat_tag(&mut self) {
-        add_tag_filter(&mut self.logcat.tag_input, &mut self.logcat.tag_filters);
-    }
-
-    pub fn remove_logcat_tag(&mut self, index: usize) {
-        remove_tag_filter(&mut self.logcat.tag_filters, index);
-    }
-
-    pub fn add_error_logcat_tag(&mut self) {
-        add_tag_filter(
-            &mut self.logcat_errors.tag_input,
-            &mut self.logcat_errors.tag_filters,
-        );
-    }
-
-    pub fn remove_error_logcat_tag(&mut self, index: usize) {
-        remove_tag_filter(&mut self.logcat_errors.tag_filters, index);
-    }
-
     pub fn refresh_devices(&mut self) {
-        self.list_error = None;
-        self.devices_refreshed_at = Some(Instant::now());
-        match Adb::list_devices() {
-            Ok(devices) => {
-                self.devices = devices;
-                if let Some(serial) = &self.selected_serial {
-                    let still_connected = self.devices.iter().any(|device| {
-                        device.serial == *serial && device.state == DeviceState::Device
-                    });
-                    if !still_connected {
-                        self.deselect_device();
-                    }
-                }
-                if self.selected_serial.is_none() {
-                    if let Some(serial) = first_ready_serial(&self.devices) {
-                        self.select_device(serial);
-                    }
-                }
-            }
-            Err(err) => self.list_error = Some(err.user_message()),
+        match self.roster.refresh() {
+            RosterEvent::Unchanged => {}
+            RosterEvent::LostSelection => self.deselect_device(),
+            RosterEvent::AutoSelect(serial) => self.select_device(serial),
         }
     }
 
     pub fn select_device(&mut self, serial: String) {
-        if self.selected_serial.as_deref() == Some(serial.as_str()) {
+        if self.roster.selected_serial.as_deref() == Some(serial.as_str()) {
             return;
         }
 
-        self.stop_streams();
-        self.clear_device_data();
-        self.selected_serial = Some(serial.clone());
-        self.start_streams(&serial);
+        self.session.stop();
+        self.clear_view_state();
+        self.roster.selected_serial = Some(serial.clone());
+        let errors = self.session.start(&serial);
+        self.apply_start_errors(errors);
     }
 
     pub fn deselect_device(&mut self) {
-        if self.selected_serial.is_none() {
+        if self.roster.selected_serial.is_none() {
             return;
         }
 
-        self.stop_streams();
-        self.clear_device_data();
-        self.selected_serial = None;
+        self.session.stop();
+        self.clear_view_state();
+        self.roster.selected_serial = None;
     }
 
     pub fn shutdown(&mut self) {
-        self.stop_streams();
+        self.session.stop();
     }
 
-    fn start_streams(&mut self, serial: &str) {
-        match LogcatStream::spawn(serial) {
-            Ok((rx, stream)) => {
-                self.logcat_rx = Some(rx);
-                self.logcat_stream = Some(stream);
-            }
-            Err(err) => {
-                let message = err.user_message();
-                self.logcat.error = Some(message.clone());
-                self.logcat_errors.error = Some(message);
-            }
+    /// Copies spawn failures onto the logcat panes and metric snapshots.
+    fn apply_start_errors(&mut self, errors: SessionStartErrors) {
+        if let Some(message) = errors.logcat {
+            self.logcat.error = Some(message.clone());
+            self.logcat_errors.error = Some(message);
         }
-
-        match RamPoller::spawn(serial) {
-            Ok((rx, poller)) => {
-                self.ram_rx = Some(rx);
-                self.ram_poller = Some(poller);
-            }
-            Err(err) => self.ram_error = Some(err.user_message()),
-        }
-
-        match StorageGaugePoller::spawn(serial) {
-            Ok((rx, poller)) => {
-                self.storage_gauge_rx = Some(rx);
-                self.storage_gauge_poller = Some(poller);
-            }
-            Err(err) => self.storage_gauge_error = Some(err.user_message()),
-        }
-
-        match StorageBreakdownPoller::spawn(serial) {
-            Ok((rx, poller)) => {
-                self.storage_breakdown_rx = Some(rx);
-                self.storage_breakdown_poller = Some(poller);
-            }
-            Err(err) => self.storage_breakdown_error = Some(err.user_message()),
-        }
-
-        match NetworkPoller::spawn(serial) {
-            Ok((rx, poller)) => {
-                self.network_rx = Some(rx);
-                self.network_poller = Some(poller);
-            }
-            Err(err) => self.network_error = Some(err.user_message()),
-        }
-
-        match ProtocolPoller::spawn(serial) {
-            Ok((rx, poller)) => {
-                self.protocol_rx = Some(rx);
-                self.protocol_poller = Some(poller);
-            }
-            Err(err) => self.protocol_error = Some(err.user_message()),
-        }
-
-        // Heavy per-package scan; start after fast pollers and an internal delay.
-        match AppStoragePoller::spawn(serial) {
-            Ok((rx, poller)) => {
-                self.app_storage_rx = Some(rx);
-                self.app_storage_poller = Some(poller);
-                self.app_storage.scanning = true;
-            }
-            Err(err) => self.app_storage.error = Some(err.user_message()),
+        self.metrics.ram_error = errors.ram;
+        self.metrics.storage_gauge_error = errors.storage_gauge;
+        self.metrics.storage_breakdown_error = errors.storage_breakdown;
+        self.metrics.network_error = errors.network;
+        self.metrics.protocol_error = errors.protocol;
+        if let Some(message) = errors.app_storage {
+            self.metrics.app_storage.error = Some(message);
+        } else if self.session.has_app_storage() {
+            self.metrics.app_storage.scanning = true;
         }
     }
 
-    fn clear_device_data(&mut self) {
+    /// Resets logcat panes, metric snapshots, and insight request state.
+    fn clear_view_state(&mut self) {
         self.logcat.reset_view();
         self.logcat_errors.reset_view();
-        self.network_stats = None;
-        self.network_error = None;
-        self.protocol_stats = None;
-        self.protocol_error = None;
-        self.app_storage = AppStorageState::default();
-        self.storage_breakdown = None;
-        self.storage_breakdown_error = None;
-        self.ram_memory = None;
-        self.ram_error = None;
-        self.storage_gauge = None;
-        self.storage_gauge_error = None;
-        self.insight = InsightState::default();
-        self.insight_rx = None;
-        self.insight_serial = None;
-    }
-
-    fn request_insight(&mut self) {
-        let Some(serial) = self.selected_serial.clone() else {
-            return;
-        };
-        if self.insight.status == InsightStatus::RequestSent {
-            return;
-        }
-
-        let model = self
-            .devices
-            .iter()
-            .find(|device| device.serial == serial)
-            .map(|device| device.model.as_str())
-            .unwrap_or("unknown");
-        let now = Instant::now();
-        let snapshot = build_snapshot(
-            self.logcat_errors.insight_lines(),
-            LevelMask::Error,
-            model,
-            &serial,
-            now,
-        );
-        if snapshot.clusters.is_empty() {
-            return;
-        }
-        let key = snapshot.digest_key();
-        self.insight.generation = self.insight.generation.wrapping_add(1);
-        self.insight.status = InsightStatus::RequestSent;
-        self.insight.last_analyze = Some(now);
-        self.insight.last_sent_key = Some(key);
-        self.insight_serial = Some(serial.clone());
-        self.insight_rx = Some(spawn_insight(snapshot, self.insight.generation, serial));
-        tracing::info!(
-            generation = self.insight.generation,
-            "insight request queued"
-        );
-    }
-
-    /// Queues an insight POST when recent errors settle or the digest changes.
-    fn maybe_request_insight(&mut self) {
-        if self.selected_serial.is_none() {
-            return;
-        }
-        if self.insight.status == InsightStatus::RequestSent {
-            return;
-        }
-
-        let Some(serial) = self.selected_serial.clone() else {
-            return;
-        };
-        let model = self
-            .devices
-            .iter()
-            .find(|device| device.serial == serial)
-            .map(|device| device.model.as_str())
-            .unwrap_or("unknown");
-        let now = Instant::now();
-        let snapshot = build_snapshot(
-            self.logcat_errors.insight_lines(),
-            LevelMask::Error,
-            model,
-            &serial,
-            now,
-        );
-        if snapshot.clusters.is_empty() {
-            return;
-        }
-        let key = snapshot.digest_key();
-
-        let should_send = match self.insight.last_sent_key.as_deref() {
-            None => self
-                .insight
-                .last_error_at
-                .is_some_and(|at| at.elapsed() >= INSIGHT_SETTLE),
-            Some(prev) => {
-                let cooled = self
-                    .insight
-                    .last_analyze
-                    .is_none_or(|at| at.elapsed() >= INSIGHT_COOLDOWN);
-                let key_changed = key != prev;
-                let high = snapshot.has_new_high_severity(prev);
-                if key_changed {
-                    high || cooled
-                } else {
-                    self.insight.status == InsightStatus::RequestFailed && cooled
-                }
-            }
-        };
-
-        if should_send {
-            self.request_insight();
-        }
-    }
-
-    fn drain_insight(&mut self) -> bool {
-        let Some(rx) = self.insight_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            let (generation, serial) = match &update {
-                InsightUpdate::Started { generation, serial }
-                | InsightUpdate::Reply {
-                    generation, serial, ..
-                }
-                | InsightUpdate::Error {
-                    generation, serial, ..
-                } => (*generation, serial.as_str()),
-            };
-            if generation != self.insight.generation {
-                continue;
-            }
-            if self.insight_serial.as_deref() != Some(serial) {
-                continue;
-            }
-            if self.selected_serial.as_deref() != Some(serial) {
-                continue;
-            }
-            match update {
-                InsightUpdate::Started { .. } => {
-                    self.insight.status = InsightStatus::RequestSent;
-                    updated = true;
-                }
-                InsightUpdate::Reply { text, .. } => {
-                    self.insight.replies.push_back(text);
-                    while self.insight.replies.len() > MAX_INSIGHTS {
-                        self.insight.replies.pop_front();
-                    }
-                    self.insight.status = InsightStatus::Idle;
-                    self.insight.ever_succeeded = true;
-                    tracing::info!(stored = self.insight.replies.len(), "insight reply stored");
-                    updated = true;
-                }
-                InsightUpdate::Error { .. } => {
-                    self.insight.status = InsightStatus::RequestFailed;
-                    if !self.insight.ever_succeeded {
-                        self.insight.last_sent_key = None;
-                        self.insight.last_error_at = Some(Instant::now());
-                    }
-                    updated = true;
-                }
-            }
-        }
-        updated
-    }
-
-    fn stop_streams(&mut self) {
-        self.stop_logcat();
-        self.stop_ram();
-        self.stop_storage_gauge();
-        self.stop_network();
-        self.stop_protocols();
-        self.stop_app_storage();
-        self.stop_storage_breakdown();
-    }
-
-    fn stop_network(&mut self) {
-        if let Some(poller) = self.network_poller.take() {
-            poller.stop();
-        }
-        self.network_rx = None;
-    }
-
-    fn stop_protocols(&mut self) {
-        if let Some(poller) = self.protocol_poller.take() {
-            poller.stop();
-        }
-        self.protocol_rx = None;
-    }
-
-    fn stop_app_storage(&mut self) {
-        if let Some(poller) = self.app_storage_poller.take() {
-            poller.stop();
-        }
-        self.app_storage_rx = None;
-    }
-
-    fn stop_storage_breakdown(&mut self) {
-        if let Some(poller) = self.storage_breakdown_poller.take() {
-            poller.stop();
-        }
-        self.storage_breakdown_rx = None;
-    }
-
-    fn stop_ram(&mut self) {
-        if let Some(poller) = self.ram_poller.take() {
-            poller.stop();
-        }
-        self.ram_rx = None;
-    }
-
-    fn stop_storage_gauge(&mut self) {
-        if let Some(poller) = self.storage_gauge_poller.take() {
-            poller.stop();
-        }
-        self.storage_gauge_rx = None;
-    }
-
-    fn stop_logcat(&mut self) {
-        if let Some(stream) = self.logcat_stream.take() {
-            stream.stop();
-        }
-        self.logcat_rx = None;
-    }
-
-    fn drain_logcat(&mut self) -> bool {
-        let entries = take_log_entries(self.logcat_rx.as_ref());
-        let flush_pending =
-            self.logcat_errors.auto_update_feed && !self.logcat_errors.pending.is_empty();
-        let accept_errors_only = self.logcat_errors.accept_errors_only;
-        let accepted_entry = entries
-            .iter()
-            .any(|entry| !accept_errors_only || entry.is_error_level());
-        let updated_all = ingest_log_entries(&mut self.logcat, &entries);
-        let updated_errors = ingest_log_entries(&mut self.logcat_errors, &entries);
-        if flush_pending || accepted_entry {
-            self.insight.last_error_at = Some(Instant::now());
-        }
-        updated_all || updated_errors
-    }
-
-    fn drain_network(&mut self) -> bool {
-        let Some(rx) = self.network_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                NetworkUpdate::Stats(stats) => {
-                    self.network_stats = Some(stats);
-                    self.network_error = None;
-                    updated = true;
-                }
-                NetworkUpdate::Error(message) => {
-                    self.network_error = Some(message);
-                    updated = true;
-                }
-            }
-        }
-        updated
-    }
-
-    fn drain_protocols(&mut self) -> bool {
-        let Some(rx) = self.protocol_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                ProtocolUpdate::Stats(stats) => {
-                    self.protocol_stats = Some(stats);
-                    self.protocol_error = None;
-                    updated = true;
-                }
-                ProtocolUpdate::Error(message) => {
-                    self.protocol_error = Some(message);
-                    updated = true;
-                }
-            }
-        }
-        updated
-    }
-
-    fn drain_app_storage(&mut self) -> bool {
-        let Some(rx) = self.app_storage_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                AppStorageUpdate::PackageList(packages) => {
-                    if self.app_storage.packages.is_empty() {
-                        self.app_storage.set_packages(packages);
-                    } else {
-                        self.app_storage.merge_packages(packages);
-                    }
-                    self.app_storage.error = None;
-                    updated = true;
-                }
-                AppStorageUpdate::PackageStorage(storage) => {
-                    self.app_storage
-                        .set_size(&storage.package, storage.total_bytes);
-                    updated = true;
-                }
-                AppStorageUpdate::ScanComplete => {
-                    self.app_storage.scanning = false;
-                    updated = true;
-                }
-                AppStorageUpdate::Error(message) => {
-                    self.app_storage.error = Some(message);
-                    updated = true;
-                }
-            }
-        }
-        updated
-    }
-
-    fn drain_storage_breakdown(&mut self) -> bool {
-        let Some(rx) = self.storage_breakdown_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                StorageBreakdownUpdate::Breakdown(breakdown) => {
-                    self.storage_breakdown = Some(breakdown);
-                    self.storage_breakdown_error = None;
-                    updated = true;
-                }
-                StorageBreakdownUpdate::Error(message) => {
-                    self.storage_breakdown_error = Some(message);
-                    updated = true;
-                }
-            }
-        }
-        updated
-    }
-
-    fn drain_ram(&mut self) -> bool {
-        let Some(rx) = self.ram_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                RamUpdate::Memory(memory) => {
-                    self.ram_memory = Some(memory);
-                    self.ram_error = None;
-                    updated = true;
-                }
-                RamUpdate::Error(message) => {
-                    self.ram_error = Some(message);
-                    updated = true;
-                }
-            }
-        }
-        updated
-    }
-
-    fn drain_storage_gauge(&mut self) -> bool {
-        let Some(rx) = self.storage_gauge_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                StorageGaugeUpdate::Overview(overview) => {
-                    self.storage_gauge = Some(overview);
-                    self.storage_gauge_error = None;
-                    updated = true;
-                }
-                StorageGaugeUpdate::Error(message) => {
-                    self.storage_gauge_error = Some(message);
-                    updated = true;
-                }
-            }
-        }
-        updated
+        self.metrics = MetricStore::default();
+        self.insight.reset();
     }
 
     pub fn tick(&mut self, ctx: &egui::Context) {
-        let mut needs_repaint = false;
-        if self.drain_logcat() {
-            needs_repaint = true;
+        let outcome = self.session.drain_into(
+            &mut self.logcat,
+            &mut self.logcat_errors,
+            &mut self.metrics,
+        );
+        if outcome.error_accepted {
+            self.insight.note_error();
         }
-        if self.drain_ram() {
-            needs_repaint = true;
-        }
-        if self.drain_storage_gauge() {
-            needs_repaint = true;
-        }
-        if self.drain_network() {
-            needs_repaint = true;
-        }
-        if self.drain_protocols() {
-            needs_repaint = true;
-        }
-        if self.drain_app_storage() {
-            needs_repaint = true;
-        }
-        if self.drain_storage_breakdown() {
-            needs_repaint = true;
-        }
-        if self.drain_insight() {
+        let mut needs_repaint = outcome.ui_changed;
+        if self.insight.drain(self.roster.selected_serial.as_deref()) {
             needs_repaint = true;
         }
         self.maybe_request_insight();
         if needs_repaint {
             ctx.request_repaint();
         }
-        if self.selected_serial.is_some() {
+        if self.roster.selected_serial.is_some() {
             ctx.request_repaint_after(REPAINT_INTERVAL);
         }
     }
-}
 
-/// Adds a trimmed tag filter if it is non-empty and not already present (case-insensitive).
-fn add_tag_filter(input: &mut String, filters: &mut Vec<LogcatTagFilter>) {
-    let tag = input.trim().to_string();
-    if tag.is_empty() {
-        return;
+    /// Queues an insight POST when recent errors settle or the digest changes.
+    fn maybe_request_insight(&mut self) {
+        let Some(serial) = self.roster.selected_serial.clone() else {
+            return;
+        };
+        let model = self
+            .roster
+            .devices
+            .iter()
+            .find(|device| device.serial == serial)
+            .map(|device| device.model.clone())
+            .unwrap_or_else(|| "unknown".to_string());
+        if self
+            .insight
+            .maybe_request(&serial, &model, self.logcat_errors.insight_lines())
+        {
+            self.insight
+                .request(&serial, &model, self.logcat_errors.insight_lines());
+        }
     }
-
-    if filters
-        .iter()
-        .any(|filter| filter.tag.eq_ignore_ascii_case(&tag))
-    {
-        input.clear();
-        return;
-    }
-
-    filters.push(LogcatTagFilter {
-        tag: tag.clone(),
-        color_index: ui_elements::tag_color_index(&tag),
-    });
-    input.clear();
-}
-
-/// Removes the tag filter at `index` if it exists.
-fn remove_tag_filter(filters: &mut Vec<LogcatTagFilter>, index: usize) {
-    if index < filters.len() {
-        filters.remove(index);
-    }
-}
-
-/// Appends `entries` to `pane`. Flushes pending first when auto-update is on.
-/// Returns true when the visible ring buffer changed.
-fn ingest_log_entries(pane: &mut LogcatPane, entries: &[LogEntry]) -> bool {
-    let mut updated = false;
-    if pane.auto_update_feed {
-        updated |= pane.flush_pending();
-    }
-    for entry in entries {
-        updated |= pane.append_entry(entry);
-    }
-    updated
-}
-
-fn take_log_entries(rx: Option<&Receiver<LogEntry>>) -> Vec<LogEntry> {
-    let Some(rx) = rx else {
-        return Vec::new();
-    };
-
-    rx.try_iter().take(MAX_DRAIN_PER_FRAME).collect()
-}
-
-fn trim_buffer(buffer: &mut VecDeque<CachedLogLine>) {
-    while buffer.len() > MAX_LOG_LINES {
-        buffer.pop_front();
-    }
-}
-
-fn first_ready_serial(devices: &[DeviceInfo]) -> Option<String> {
-    devices
-        .iter()
-        .find(|device| device.state == DeviceState::Device)
-        .map(|device| device.serial.clone())
 }

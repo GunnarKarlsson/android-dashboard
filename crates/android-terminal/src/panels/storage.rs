@@ -1,54 +1,45 @@
 use adb_client::{StorageCategory, StorageOverview};
 use eframe::egui;
 
-use crate::app::{App, AppStorageState};
+use crate::app::PackageStorageState;
 use crate::format::{format_bytes, format_bytes_mb, format_gb_from_bytes, truncate_package_name};
+use crate::metrics::MetricStore;
 use crate::theme;
 use crate::ui_elements;
 
 use super::donut::show_usage_donut;
 
-pub fn storage_usage_panel(ui: &mut egui::Ui, app: &App) {
-    if let Some(error) = &app.storage_breakdown_error {
+pub fn storage_usage_panel(ui: &mut egui::Ui, metrics: &MetricStore) {
+    if let Some(error) = &metrics.storage_breakdown_error {
         ui_elements::error_label(ui, error);
     }
-    if let Some(error) = &app.app_storage.error {
+    if let Some(error) = &metrics.app_storage.error {
         ui_elements::error_label(ui, error);
     }
 
     ui_elements::panel_body(ui, theme::colors::MEMORY_DISK_BODY, |ui| {
-        if app.selected_serial.is_none() {
-            ui_elements::panel_loading(ui);
-            return;
-        }
-
         egui::ScrollArea::both()
             .id_salt(egui::Id::new("storage_usage_scroll"))
             .auto_shrink([false, false])
             .max_height(ui.available_height())
             .show(ui, |ui| {
-                if let Some(breakdown) = &app.storage_breakdown {
+                if let Some(breakdown) = &metrics.storage_breakdown {
                     show_storage_categories(ui, &breakdown.categories);
-                } else if app.storage_breakdown_rx.is_some() {
+                } else if metrics.storage_breakdown_error.is_none() {
                     ui.label("Loading storage…");
                 }
                 ui.separator();
-                show_app_storage(ui, &app.app_storage);
+                show_app_storage(ui, &metrics.app_storage);
             });
     });
 }
 
-pub fn storage_gauge_panel(ui: &mut egui::Ui, app: &App) {
-    if app.selected_serial.is_none() {
-        ui_elements::panel_loading(ui);
-        return;
-    }
-
-    if let Some(error) = &app.storage_gauge_error {
+pub fn storage_gauge_panel(ui: &mut egui::Ui, metrics: &MetricStore) {
+    if let Some(error) = &metrics.storage_gauge_error {
         ui_elements::error_label(ui, error);
     }
 
-    let Some(overview) = &app.storage_gauge else {
+    let Some(overview) = &metrics.storage_gauge else {
         ui_elements::panel_loading(ui);
         return;
     };
@@ -88,7 +79,7 @@ fn show_storage_categories(ui: &mut egui::Ui, categories: &[StorageCategory]) {
         });
 }
 
-fn show_app_storage(ui: &mut egui::Ui, storage: &AppStorageState) {
+fn show_app_storage(ui: &mut egui::Ui, storage: &PackageStorageState) {
     ui.horizontal(|ui| {
         ui.label("Apps");
         if storage.scanning {

@@ -1,27 +1,20 @@
 use adb_client::ProtocolStats;
 use eframe::egui;
 
-use crate::app::App;
 use crate::format::format_bytes_mb;
+use crate::metrics::MetricStore;
 use crate::theme;
 use crate::ui_elements;
 
-pub fn protocols_panel(ui: &mut egui::Ui, app: &App) {
-    if let Some(error) = &app.protocol_error {
+pub fn protocols_panel(ui: &mut egui::Ui, metrics: &MetricStore) {
+    if let Some(error) = &metrics.protocol_error {
         ui_elements::error_label(ui, error);
     }
 
     ui_elements::panel_body(ui, theme::colors::APP_TRAFFIC_BODY, |ui| {
-        if app.selected_serial.is_none() {
-            ui_elements::panel_loading(ui);
-            return;
-        }
-
-        let Some(stats) = &app.protocol_stats else {
-            if app.protocol_rx.is_some() {
+        let Some(stats) = &metrics.protocol_stats else {
+            if metrics.protocol_error.is_none() {
                 ui.label("Fetching app traffic…");
-            } else {
-                ui_elements::panel_loading(ui);
             }
             return;
         };
