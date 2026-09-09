@@ -3,7 +3,6 @@ use std::time::{Duration, Instant};
 use adb_client::DeviceInfo;
 use eframe::egui;
 
-use crate::logcat_pane::{add_tag_filter, remove_tag_filter};
 use crate::metrics::MetricStore;
 use crate::roster::{first_ready_serial, DeviceRoster, RosterEvent};
 use crate::session::{DeviceSession, SessionStartErrors};
@@ -55,25 +54,6 @@ impl App {
             app.select_device(serial);
         }
         app
-    }
-
-    pub fn add_logcat_tag(&mut self) {
-        add_tag_filter(&mut self.logcat.tag_input, &mut self.logcat.tag_filters);
-    }
-
-    pub fn remove_logcat_tag(&mut self, index: usize) {
-        remove_tag_filter(&mut self.logcat.tag_filters, index);
-    }
-
-    pub fn add_error_logcat_tag(&mut self) {
-        add_tag_filter(
-            &mut self.logcat_errors.tag_input,
-            &mut self.logcat_errors.tag_filters,
-        );
-    }
-
-    pub fn remove_error_logcat_tag(&mut self, index: usize) {
-        remove_tag_filter(&mut self.logcat_errors.tag_filters, index);
     }
 
     pub fn refresh_devices(&mut self) {
@@ -128,18 +108,22 @@ impl App {
         }
     }
 
+    #[allow(dead_code)]
     pub fn has_logcat(&self) -> bool {
         self.session.has_logcat()
     }
 
+    #[allow(dead_code)]
     pub fn has_network(&self) -> bool {
         self.session.has_network()
     }
 
+    #[allow(dead_code)]
     pub fn has_protocol(&self) -> bool {
         self.session.has_protocol()
     }
 
+    #[allow(dead_code)]
     pub fn has_storage_breakdown(&self) -> bool {
         self.session.has_storage_breakdown()
     }

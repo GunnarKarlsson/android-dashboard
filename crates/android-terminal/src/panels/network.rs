@@ -1,26 +1,19 @@
 use adb_client::NetworkStats;
 use eframe::egui;
 
-use crate::app::App;
 use crate::format::{format_bytes_mb, format_rate_mb};
+use crate::metrics::MetricStore;
 use crate::theme;
 use crate::ui_elements;
 
-pub fn network_panel(ui: &mut egui::Ui, app: &App) {
-    if let Some(error) = &app.metrics.network_error {
+pub fn network_panel(ui: &mut egui::Ui, metrics: &MetricStore) {
+    if let Some(error) = &metrics.network_error {
         ui_elements::error_label(ui, error);
     }
 
-    if app.roster.selected_serial.is_none() {
-        ui_elements::panel_loading(ui);
-        return;
-    }
-
-    let Some(stats) = &app.metrics.network_stats else {
-        if app.has_network() {
+    let Some(stats) = &metrics.network_stats else {
+        if metrics.network_error.is_none() {
             ui.label("Fetching network stats…");
-        } else {
-            ui_elements::panel_loading(ui);
         }
         return;
     };

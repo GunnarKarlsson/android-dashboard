@@ -2,55 +2,44 @@ use std::collections::VecDeque;
 
 use eframe::egui;
 
-use crate::app::{App, CachedLogLine, LogcatTagFilter};
+use crate::app::{CachedLogLine, LogcatPane, LogcatTagFilter};
 use crate::theme;
 use crate::ui_elements;
 
 /// Draws the all-logcat body and returns the number of rows in the log text area.
-pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usize {
+pub fn logcat_all_panel(ui: &mut egui::Ui, pane: &mut LogcatPane, auto_scroll: bool) -> usize {
     ui_elements::filter_row(ui, |ui| {
         ui.label("Tag filter:");
-        let response =
-            ui_elements::tag_filter_input(ui, &mut app.logcat.tag_input, "logcat_tag_input");
+        let response = ui_elements::tag_filter_input(ui, &mut pane.tag_input, "logcat_tag_input");
         if response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
-            app.add_logcat_tag();
+            pane.add_tag();
             response.request_focus();
         }
     });
 
     let mut remove_tag_index = None;
-    ui_elements::tag_filter_row(ui, &app.logcat.tag_filters, &mut remove_tag_index);
+    ui_elements::tag_filter_row(ui, &pane.tag_filters, &mut remove_tag_index);
     if let Some(index) = remove_tag_index {
-        app.remove_logcat_tag(index);
+        pane.remove_tag(index);
     }
 
-    if app.roster.selected_serial.is_none() {
-        ui_elements::panel_loading(ui);
-        return 0;
-    }
-
-    if let Some(error) = &app.logcat.error {
+    if let Some(error) = &pane.error {
         ui_elements::error_label(ui, error);
     }
 
-    if !app.has_logcat() {
-        ui_elements::panel_loading(ui);
-        return 0;
-    }
-
-    if app.logcat.lines.is_empty() {
+    if pane.lines.is_empty() {
         ui.label("Waiting for log output…");
         return 0;
     }
 
-    let tag_filters = app.logcat.tag_filters.clone();
-    let show_timestamps = app.logcat.show_timestamps;
-    let matching = filtered_line_indices(&app.logcat.lines, &tag_filters, show_timestamps);
+    let tag_filters = pane.tag_filters.clone();
+    let show_timestamps = pane.show_timestamps;
+    let matching = filtered_line_indices(&pane.lines, &tag_filters, show_timestamps);
 
     show_log_scroll(
         ui,
         LogScrollArgs {
-            lines: &app.logcat.lines,
+            lines: &pane.lines,
             matching: &matching,
             stick_to_bottom: auto_scroll,
             show_timestamps,
@@ -63,54 +52,40 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> 
 }
 
 /// Draws the error-logcat body and returns the number of rows in the log text area.
-pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usize {
+pub fn logcat_errors_panel(ui: &mut egui::Ui, pane: &mut LogcatPane, auto_scroll: bool) -> usize {
     ui_elements::filter_row(ui, |ui| {
         ui.label("Tag filter:");
-        let response = ui_elements::tag_filter_input(
-            ui,
-            &mut app.logcat_errors.tag_input,
-            "error_logcat_tag_input",
-        );
+        let response =
+            ui_elements::tag_filter_input(ui, &mut pane.tag_input, "error_logcat_tag_input");
         if response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
-            app.add_error_logcat_tag();
+            pane.add_tag();
             response.request_focus();
         }
     });
 
     let mut remove_tag_index = None;
-    ui_elements::tag_filter_row(ui, &app.logcat_errors.tag_filters, &mut remove_tag_index);
+    ui_elements::tag_filter_row(ui, &pane.tag_filters, &mut remove_tag_index);
     if let Some(index) = remove_tag_index {
-        app.remove_error_logcat_tag(index);
+        pane.remove_tag(index);
     }
 
-    if app.roster.selected_serial.is_none() {
-        ui_elements::panel_loading(ui);
-        return 0;
-    }
-
-    if let Some(error) = &app.logcat_errors.error {
+    if let Some(error) = &pane.error {
         ui_elements::error_label(ui, error);
     }
 
-    if !app.has_logcat() {
-        ui_elements::panel_loading(ui);
-        return 0;
-    }
-
-    if app.logcat_errors.lines.is_empty() {
+    if pane.lines.is_empty() {
         ui.label("Waiting for error log output…");
         return 0;
     }
 
-    let tag_filters = app.logcat_errors.tag_filters.clone();
-    let show_timestamps = app.logcat_errors.show_timestamps;
-    let matching =
-        filtered_line_indices(&app.logcat_errors.lines, &tag_filters, show_timestamps);
+    let tag_filters = pane.tag_filters.clone();
+    let show_timestamps = pane.show_timestamps;
+    let matching = filtered_line_indices(&pane.lines, &tag_filters, show_timestamps);
 
     show_log_scroll(
         ui,
         LogScrollArgs {
-            lines: &app.logcat_errors.lines,
+            lines: &pane.lines,
             matching: &matching,
             stick_to_bottom: auto_scroll,
             show_timestamps,

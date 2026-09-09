@@ -3,6 +3,7 @@ use egui_tiles::{Behavior, ResizeState, TileId, Tree, UiResponse};
 
 use crate::app::App;
 use crate::panels;
+use crate::panels::devices::DevicesAction;
 use crate::theme;
 use crate::ui_elements;
 
@@ -162,18 +163,34 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
     }
 
     fn pane_ui(&mut self, ui: &mut egui::Ui, _tile_id: TileId, pane: &mut PanelId) -> UiResponse {
+        let device_selected = self.app.roster.selected_serial.is_some();
         match pane {
             PanelId::Devices => {
-                panels::devices::devices_panel(ui, self.app, pane.icon());
+                if let Some(action) =
+                    panels::devices::devices_panel(ui, &self.app.roster, pane.icon())
+                {
+                    match action {
+                        DevicesAction::Refresh => self.app.refresh_devices(),
+                        DevicesAction::Select(serial) => self.app.select_device(serial),
+                    }
+                }
             }
             PanelId::Ram => {
                 ui_elements::panel(ui, pane.icon(), pane.title(), |ui| {
-                    panels::ram::ram_gauge_panel(ui, self.app)
+                    if !device_selected {
+                        ui_elements::panel_loading(ui);
+                    } else {
+                        panels::ram::ram_gauge_panel(ui, &self.app.metrics);
+                    }
                 });
             }
             PanelId::Storage => {
                 ui_elements::panel(ui, pane.icon(), pane.title(), |ui| {
-                    panels::storage::storage_gauge_panel(ui, self.app)
+                    if !device_selected {
+                        ui_elements::panel_loading(ui);
+                    } else {
+                        panels::storage::storage_gauge_panel(ui, &self.app.metrics);
+                    }
                 });
             }
             PanelId::LogcatAll => {
@@ -184,7 +201,14 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                     pane.icon(),
                     pane.title(),
                     |_| {},
-                    |ui, auto_scroll| panels::logcat::logcat_all_panel(ui, self.app, auto_scroll),
+                    |ui, auto_scroll| {
+                        if !device_selected {
+                            ui_elements::panel_loading(ui);
+                            0
+                        } else {
+                            panels::logcat::logcat_all_panel(ui, &mut self.app.logcat, auto_scroll)
+                        }
+                    },
                     &mut auto_scroll,
                     Some(&mut show_timestamps),
                 );
@@ -198,7 +222,14 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                     pane.icon(),
                     pane.title(),
                     |_| {},
-                    |ui, auto_scroll| panels::insight::insight_panel(ui, self.app, auto_scroll),
+                    |ui, auto_scroll| {
+                        if !device_selected {
+                            ui_elements::panel_loading(ui);
+                            0
+                        } else {
+                            panels::insight::insight_panel(ui, &self.app.insight, auto_scroll)
+                        }
+                    },
                     &mut auto_scroll,
                     None,
                 );
@@ -213,7 +244,16 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                     pane.title(),
                     |_| {},
                     |ui, auto_scroll| {
-                        panels::logcat::logcat_errors_panel(ui, self.app, auto_scroll)
+                        if !device_selected {
+                            ui_elements::panel_loading(ui);
+                            0
+                        } else {
+                            panels::logcat::logcat_errors_panel(
+                                ui,
+                                &mut self.app.logcat_errors,
+                                auto_scroll,
+                            )
+                        }
                     },
                     &mut auto_scroll,
                     Some(&mut show_timestamps),
@@ -223,17 +263,29 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
             }
             PanelId::SystemStats => {
                 ui_elements::panel(ui, pane.icon(), pane.title(), |ui| {
-                    panels::storage::storage_usage_panel(ui, self.app)
+                    if !device_selected {
+                        ui_elements::panel_loading(ui);
+                    } else {
+                        panels::storage::storage_usage_panel(ui, &self.app.metrics);
+                    }
                 });
             }
             PanelId::Network => {
                 ui_elements::panel(ui, pane.icon(), pane.title(), |ui| {
-                    panels::network::network_panel(ui, self.app)
+                    if !device_selected {
+                        ui_elements::panel_loading(ui);
+                    } else {
+                        panels::network::network_panel(ui, &self.app.metrics);
+                    }
                 });
             }
             PanelId::Protocols => {
                 ui_elements::panel(ui, pane.icon(), pane.title(), |ui| {
-                    panels::traffic::protocols_panel(ui, self.app)
+                    if !device_selected {
+                        ui_elements::panel_loading(ui);
+                    } else {
+                        panels::traffic::protocols_panel(ui, &self.app.metrics);
+                    }
                 });
             }
         }

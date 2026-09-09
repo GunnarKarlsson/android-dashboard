@@ -93,6 +93,16 @@ impl LogcatPane {
             .chain(self.pending.iter())
             .map(CachedLogLine::to_insight_line)
     }
+
+    /// Adds a trimmed tag filter if it is non-empty and not already present (case-insensitive).
+    pub fn add_tag(&mut self) {
+        add_tag_filter(&mut self.tag_input, &mut self.tag_filters);
+    }
+
+    /// Removes the tag filter at `index` if it exists.
+    pub fn remove_tag(&mut self, index: usize) {
+        remove_tag_filter(&mut self.tag_filters, index);
+    }
 }
 
 #[derive(Clone)]
@@ -152,7 +162,7 @@ impl CachedLogLine {
 }
 
 /// Adds a trimmed tag filter if it is non-empty and not already present (case-insensitive).
-pub(crate) fn add_tag_filter(input: &mut String, filters: &mut Vec<LogcatTagFilter>) {
+fn add_tag_filter(input: &mut String, filters: &mut Vec<LogcatTagFilter>) {
     let tag = input.trim().to_string();
     if tag.is_empty() {
         return;
@@ -174,7 +184,7 @@ pub(crate) fn add_tag_filter(input: &mut String, filters: &mut Vec<LogcatTagFilt
 }
 
 /// Removes the tag filter at `index` if it exists.
-pub(crate) fn remove_tag_filter(filters: &mut Vec<LogcatTagFilter>, index: usize) {
+fn remove_tag_filter(filters: &mut Vec<LogcatTagFilter>, index: usize) {
     if index < filters.len() {
         filters.remove(index);
     }

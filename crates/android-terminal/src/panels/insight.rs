@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use eframe::egui;
 
-use crate::app::{App, InsightStatus};
+use crate::app::{InsightController, InsightStatus};
 use crate::theme;
 use crate::ui_elements;
 
@@ -10,15 +10,10 @@ const REPLY_GAP: f32 = 8.0;
 const REPLY_SEPARATOR_GAP: f32 = 4.0;
 
 /// Draws the insight body and returns the number of text lines in the reply area.
-pub fn insight_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usize {
-    if app.roster.selected_serial.is_none() {
-        ui_elements::panel_loading(ui);
-        return 0;
-    }
-
+pub fn insight_panel(ui: &mut egui::Ui, insight: &InsightController, auto_scroll: bool) -> usize {
     ui_elements::panel_body(ui, theme::colors::INSIGHT_BODY, |ui| {
-        if app.insight.state.replies.is_empty() {
-            match app.insight.state.status {
+        if insight.state.replies.is_empty() {
+            match insight.state.status {
                 InsightStatus::RequestFailed => {
                     ui_elements::error_label(ui, "request failed, see log");
                 }
@@ -35,7 +30,7 @@ pub fn insight_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usi
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
-                for (index, reply) in app.insight.state.replies.iter().enumerate() {
+                for (index, reply) in insight.state.replies.iter().enumerate() {
                     if index > 0 {
                         ui.add_space(REPLY_GAP);
                         ui.separator();
@@ -44,7 +39,7 @@ pub fn insight_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usi
                     ui.label(reply.as_str());
                 }
             });
-        insight_reply_line_count(&app.insight.state.replies)
+        insight_reply_line_count(&insight.state.replies)
     })
 }
 

@@ -1,23 +1,18 @@
 use eframe::egui;
 
-use crate::app::App;
 use crate::format::format_gb_from_kb;
+use crate::metrics::MetricStore;
 use crate::theme;
 use crate::ui_elements;
 
 use super::donut::show_usage_donut;
 
-pub fn ram_gauge_panel(ui: &mut egui::Ui, app: &App) {
-    if app.roster.selected_serial.is_none() {
-        ui_elements::panel_loading(ui);
-        return;
-    }
-
-    if let Some(error) = &app.metrics.ram_error {
+pub fn ram_gauge_panel(ui: &mut egui::Ui, metrics: &MetricStore) {
+    if let Some(error) = &metrics.ram_error {
         ui_elements::error_label(ui, error);
     }
 
-    let Some(memory) = &app.metrics.ram_memory else {
+    let Some(memory) = &metrics.ram_memory else {
         ui_elements::panel_loading(ui);
         return;
     };
