@@ -1,9 +1,13 @@
 mod app;
 mod format;
+mod insight;
 mod layout;
 #[cfg(target_os = "macos")]
 mod macos;
+mod metrics;
 mod panels;
+mod roster;
+mod session;
 mod theme;
 mod ui_elements;
 
