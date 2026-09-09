@@ -10,6 +10,7 @@ use crate::metrics::MetricStore;
 
 const MAX_DRAIN_PER_FRAME: usize = 500;
 
+#[derive(Default)]
 pub struct DeviceSession {
     logcat_rx: Option<Receiver<LogEntry>>,
     logcat_stream: Option<LogcatStream>,
@@ -25,27 +26,6 @@ pub struct DeviceSession {
     protocol_poller: Option<ProtocolPoller>,
     app_storage_rx: Option<Receiver<AppStorageUpdate>>,
     app_storage_poller: Option<AppStoragePoller>,
-}
-
-impl Default for DeviceSession {
-    fn default() -> Self {
-        Self {
-            logcat_rx: None,
-            logcat_stream: None,
-            ram_rx: None,
-            ram_poller: None,
-            storage_gauge_rx: None,
-            storage_gauge_poller: None,
-            storage_breakdown_rx: None,
-            storage_breakdown_poller: None,
-            network_rx: None,
-            network_poller: None,
-            protocol_rx: None,
-            protocol_poller: None,
-            app_storage_rx: None,
-            app_storage_poller: None,
-        }
-    }
 }
 
 #[derive(Default)]

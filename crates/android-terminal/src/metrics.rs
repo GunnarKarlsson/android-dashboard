@@ -44,6 +44,7 @@ impl PackageStorageState {
     }
 }
 
+#[derive(Default)]
 pub struct MetricStore {
     pub ram_memory: Option<MemoryStats>,
     pub ram_error: Option<String>,
@@ -56,22 +57,4 @@ pub struct MetricStore {
     pub protocol_stats: Option<ProtocolStats>,
     pub protocol_error: Option<String>,
     pub app_storage: PackageStorageState,
-}
-
-impl Default for MetricStore {
-    fn default() -> Self {
-        Self {
-            ram_memory: None,
-            ram_error: None,
-            storage_gauge: None,
-            storage_gauge_error: None,
-            storage_breakdown: None,
-            storage_breakdown_error: None,
-            network_stats: None,
-            network_error: None,
-            protocol_stats: None,
-            protocol_error: None,
-            app_storage: PackageStorageState::default(),
-        }
-    }
 }
