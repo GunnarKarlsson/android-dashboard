@@ -2,16 +2,16 @@ use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
 use adb_client::{
-    Adb, AppStoragePoller, AppStorageUpdate, DeviceInfo, DeviceState, LogEntry, LogcatStream,
-    MemoryStats, NetworkPoller, NetworkStats, NetworkUpdate, ProtocolPoller, ProtocolStats,
-    ProtocolUpdate, RamPoller, RamUpdate, StorageBreakdown, StorageBreakdownPoller,
-    StorageBreakdownUpdate, StorageGaugePoller, StorageGaugeUpdate, StorageOverview,
+    AppStoragePoller, AppStorageUpdate, DeviceInfo, LogEntry, LogcatStream, MemoryStats,
+    NetworkPoller, NetworkStats, NetworkUpdate, ProtocolPoller, ProtocolStats, ProtocolUpdate,
+    RamPoller, RamUpdate, StorageBreakdown, StorageBreakdownPoller, StorageBreakdownUpdate,
+    StorageGaugePoller, StorageGaugeUpdate, StorageOverview,
 };
 use ai_insight::{build_snapshot, spawn_insight, InsightLine, InsightUpdate, LevelMask};
 use crossbeam_channel::Receiver;
 use eframe::egui;
 
-use crate::roster::DeviceRoster;
+use crate::roster::{first_ready_serial, DeviceRoster, RosterEvent};
 use crate::ui_elements;
 
 pub const MAX_LOG_LINES: usize = 10_000;
@@ -352,26 +352,10 @@ impl App {
     }
 
     pub fn refresh_devices(&mut self) {
-        self.roster.list_error = None;
-        self.roster.devices_refreshed_at = Some(Instant::now());
-        match Adb::list_devices() {
-            Ok(devices) => {
-                self.roster.devices = devices;
-                if let Some(serial) = &self.roster.selected_serial {
-                    let still_connected = self.roster.devices.iter().any(|device| {
-                        device.serial == *serial && device.state == DeviceState::Device
-                    });
-                    if !still_connected {
-                        self.deselect_device();
-                    }
-                }
-                if self.roster.selected_serial.is_none() {
-                    if let Some(serial) = first_ready_serial(&self.roster.devices) {
-                        self.select_device(serial);
-                    }
-                }
-            }
-            Err(err) => self.roster.list_error = Some(err.user_message()),
+        match self.roster.refresh() {
+            RosterEvent::Unchanged => {}
+            RosterEvent::LostSelection => self.deselect_device(),
+            RosterEvent::AutoSelect(serial) => self.select_device(serial),
         }
     }
 
@@ -942,11 +926,4 @@ fn trim_buffer(buffer: &mut VecDeque<CachedLogLine>) {
     while buffer.len() > MAX_LOG_LINES {
         buffer.pop_front();
     }
-}
-
-fn first_ready_serial(devices: &[DeviceInfo]) -> Option<String> {
-    devices
-        .iter()
-        .find(|device| device.state == DeviceState::Device)
-        .map(|device| device.serial.clone())
 }
