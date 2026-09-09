@@ -3,11 +3,13 @@
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![Rust](https://img.shields.io/badge/rust-1.88.0-orange?logo=rust)
 ![macOS](https://img.shields.io/badge/platform-macOS-black?logo=apple)
-[![CI](https://github.com/GunnarKarlsson/android-tui/actions/workflows/ci.yml/badge.svg)](https://github.com/GunnarKarlsson/android-tui/actions/workflows/ci.yml)
-[![Stars](https://img.shields.io/github/stars/GunnarKarlsson/android-tui)](https://github.com/GunnarKarlsson/android-tui/stargazers)
+[![CI](https://github.com/GunnarKarlsson/android-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/GunnarKarlsson/android-dashboard/actions/workflows/ci.yml)
+[![Stars](https://img.shields.io/github/stars/GunnarKarlsson/android-dashboard)](https://github.com/GunnarKarlsson/android-dashboard/stargazers)
 
 A dashboard written in Rust for debugging Android apps on macOS. 
 Shows essential Android debug data from hardware devices and emulator in a single window, together with LLM-generated insights into the error log.
+
+The UI uses JetBrains Mono Nerd Font (SIL Open Font License) from `crates/android-terminal/assets/fonts`.
 
 ![Android Terminal dashboard](screenshot1.png)
 
