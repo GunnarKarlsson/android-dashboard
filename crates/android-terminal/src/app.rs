@@ -359,22 +359,22 @@ impl App {
     }
 
     pub fn add_logcat_tag(&mut self) {
-        add_tag_filter(&mut self.logcat_tag_input, &mut self.logcat_tag_filters);
+        add_tag_filter(&mut self.logcat.tag_input, &mut self.logcat.tag_filters);
     }
 
     pub fn remove_logcat_tag(&mut self, index: usize) {
-        remove_tag_filter(&mut self.logcat_tag_filters, index);
+        remove_tag_filter(&mut self.logcat.tag_filters, index);
     }
 
     pub fn add_error_logcat_tag(&mut self) {
         add_tag_filter(
-            &mut self.error_logcat_tag_input,
-            &mut self.error_logcat_tag_filters,
+            &mut self.logcat_errors.tag_input,
+            &mut self.logcat_errors.tag_filters,
         );
     }
 
     pub fn remove_error_logcat_tag(&mut self, index: usize) {
-        remove_tag_filter(&mut self.error_logcat_tag_filters, index);
+        remove_tag_filter(&mut self.logcat_errors.tag_filters, index);
     }
 
     pub fn refresh_devices(&mut self) {
@@ -747,9 +747,8 @@ impl App {
 
     fn drain_logcat(&mut self) -> bool {
         let entries = take_log_entries(self.logcat_rx.as_ref());
-        self.logcat.auto_update_feed = self.auto_update_feed;
 
-        if self.auto_update_feed {
+        if self.logcat.auto_update_feed {
             let mut updated = false;
             if !self.pending_log_lines.is_empty() {
                 self.log_lines.extend(self.pending_log_lines.drain(..));
@@ -782,9 +781,8 @@ impl App {
 
     fn drain_error_logcat(&mut self) -> bool {
         let entries = take_log_entries(self.error_logcat_rx.as_ref());
-        self.logcat_errors.auto_update_feed = self.error_auto_update_feed;
 
-        if self.error_auto_update_feed {
+        if self.logcat_errors.auto_update_feed {
             let mut updated = false;
             if !self.pending_error_lines.is_empty() {
                 self.error_lines.extend(self.pending_error_lines.drain(..));

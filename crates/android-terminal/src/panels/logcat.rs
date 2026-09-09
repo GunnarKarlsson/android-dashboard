@@ -11,7 +11,7 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> 
     ui_elements::filter_row(ui, |ui| {
         ui.label("Filter:");
         ui.add(
-            egui::TextEdit::singleline(&mut app.logcat_filter)
+            egui::TextEdit::singleline(&mut app.logcat.filter)
                 .hint_text("Search logs…")
                 .desired_width(ui.available_width()),
         )
@@ -22,7 +22,7 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> 
         ui.label("Tag:");
         let response = ui
             .add(
-                egui::TextEdit::singleline(&mut app.logcat_tag_input)
+                egui::TextEdit::singleline(&mut app.logcat.tag_input)
                     .hint_text("Add tag…")
                     .desired_width(ui.available_width())
                     .id_salt("logcat_tag_input"),
@@ -35,7 +35,7 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> 
     });
 
     let mut remove_tag_index = None;
-    ui_elements::tag_filter_row(ui, &app.logcat_tag_filters, &mut remove_tag_index);
+    ui_elements::tag_filter_row(ui, &app.logcat.tag_filters, &mut remove_tag_index);
     if let Some(index) = remove_tag_index {
         app.remove_logcat_tag(index);
     }
@@ -45,7 +45,7 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> 
         return 0;
     }
 
-    if let Some(error) = &app.logcat_error {
+    if let Some(error) = &app.logcat.error {
         ui_elements::error_label(ui, error);
     }
 
@@ -54,20 +54,20 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> 
         return 0;
     }
 
-    if app.log_lines.is_empty() {
+    if app.logcat.lines.is_empty() {
         ui.label("Waiting for log output…");
         return 0;
     }
 
-    let filter = app.logcat_filter.clone();
-    let tag_filters = app.logcat_tag_filters.clone();
-    let show_timestamps = app.logcat_show_timestamps;
-    let matching = filtered_line_indices(&app.log_lines, &filter, &tag_filters, show_timestamps);
+    let filter = app.logcat.filter.clone();
+    let tag_filters = app.logcat.tag_filters.clone();
+    let show_timestamps = app.logcat.show_timestamps;
+    let matching = filtered_line_indices(&app.logcat.lines, &filter, &tag_filters, show_timestamps);
 
     show_log_scroll(
         ui,
         LogScrollArgs {
-            lines: &app.log_lines,
+            lines: &app.logcat.lines,
             matching: &matching,
             stick_to_bottom: auto_scroll,
             show_timestamps,
@@ -84,7 +84,7 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
     ui_elements::filter_row(ui, |ui| {
         ui.label("Filter:");
         ui.add(
-            egui::TextEdit::singleline(&mut app.error_logcat_filter)
+            egui::TextEdit::singleline(&mut app.logcat_errors.filter)
                 .hint_text("Search errors…")
                 .desired_width(ui.available_width()),
         )
@@ -95,7 +95,7 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
         ui.label("Tag:");
         let response = ui
             .add(
-                egui::TextEdit::singleline(&mut app.error_logcat_tag_input)
+                egui::TextEdit::singleline(&mut app.logcat_errors.tag_input)
                     .hint_text("Add tag…")
                     .desired_width(ui.available_width())
                     .id_salt("error_logcat_tag_input"),
@@ -108,7 +108,7 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
     });
 
     let mut remove_tag_index = None;
-    ui_elements::tag_filter_row(ui, &app.error_logcat_tag_filters, &mut remove_tag_index);
+    ui_elements::tag_filter_row(ui, &app.logcat_errors.tag_filters, &mut remove_tag_index);
     if let Some(index) = remove_tag_index {
         app.remove_error_logcat_tag(index);
     }
@@ -118,7 +118,7 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
         return 0;
     }
 
-    if let Some(error) = &app.error_logcat_error {
+    if let Some(error) = &app.logcat_errors.error {
         ui_elements::error_label(ui, error);
     }
 
@@ -127,20 +127,25 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
         return 0;
     }
 
-    if app.error_lines.is_empty() {
+    if app.logcat_errors.lines.is_empty() {
         ui.label("Waiting for error log output…");
         return 0;
     }
 
-    let filter = app.error_logcat_filter.clone();
-    let tag_filters = app.error_logcat_tag_filters.clone();
-    let show_timestamps = app.error_show_timestamps;
-    let matching = filtered_line_indices(&app.error_lines, &filter, &tag_filters, show_timestamps);
+    let filter = app.logcat_errors.filter.clone();
+    let tag_filters = app.logcat_errors.tag_filters.clone();
+    let show_timestamps = app.logcat_errors.show_timestamps;
+    let matching = filtered_line_indices(
+        &app.logcat_errors.lines,
+        &filter,
+        &tag_filters,
+        show_timestamps,
+    );
 
     show_log_scroll(
         ui,
         LogScrollArgs {
-            lines: &app.error_lines,
+            lines: &app.logcat_errors.lines,
             matching: &matching,
             stick_to_bottom: auto_scroll,
             show_timestamps,
