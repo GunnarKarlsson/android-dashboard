@@ -17,8 +17,8 @@ pub fn insight_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usi
     }
 
     ui_elements::panel_body(ui, theme::colors::INSIGHT_BODY, |ui| {
-        if app.insight.replies.is_empty() {
-            match app.insight.status {
+        if app.insight.state.replies.is_empty() {
+            match app.insight.state.status {
                 InsightStatus::RequestFailed => {
                     ui_elements::error_label(ui, "request failed, see log");
                 }
@@ -35,7 +35,7 @@ pub fn insight_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usi
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
-                for (index, reply) in app.insight.replies.iter().enumerate() {
+                for (index, reply) in app.insight.state.replies.iter().enumerate() {
                     if index > 0 {
                         ui.add_space(REPLY_GAP);
                         ui.separator();
@@ -44,7 +44,7 @@ pub fn insight_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usi
                     ui.label(reply.as_str());
                 }
             });
-        insight_reply_line_count(&app.insight.replies)
+        insight_reply_line_count(&app.insight.state.replies)
     })
 }
 

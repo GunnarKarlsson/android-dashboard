@@ -192,7 +192,7 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                 self.app.logcat.auto_update_feed = auto_scroll;
             }
             PanelId::Insight => {
-                let mut auto_scroll = self.app.insight_auto_update_feed;
+                let mut auto_scroll = self.app.insight.auto_update_feed;
                 ui_elements::panel_with_footer(
                     ui,
                     pane.icon(),
@@ -202,7 +202,7 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                     &mut auto_scroll,
                     None,
                 );
-                self.app.insight_auto_update_feed = auto_scroll;
+                self.app.insight.auto_update_feed = auto_scroll;
             }
             PanelId::LogcatErrors => {
                 let mut show_timestamps = self.app.logcat_errors.show_timestamps;
