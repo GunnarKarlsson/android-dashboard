@@ -55,21 +55,35 @@ impl InsightController {
 
         let now = Instant::now();
         let snapshot = build_snapshot(lines, LevelMask::Error, model, serial, now);
+        if !self.should_send(&snapshot, now) {
+            return false;
+        }
+
+        self.queue(serial, snapshot, now);
+        true
+    }
+
+    /// Returns whether settle, cooldown, digest change, and request status allow sending
+    /// `snapshot` at `now`.
+    fn should_send(&self, snapshot: &InsightSnapshot, now: Instant) -> bool {
+        if self.state.status == InsightStatus::RequestSent {
+            return false;
+        }
         if snapshot.clusters.is_empty() {
             return false;
         }
         let key = snapshot.digest_key();
 
-        let should_send = match self.state.last_sent_key.as_deref() {
+        match self.state.last_sent_key.as_deref() {
             None => self
                 .state
                 .last_error_at
-                .is_some_and(|at| at.elapsed() >= INSIGHT_SETTLE),
+                .is_some_and(|at| now.saturating_duration_since(at) >= INSIGHT_SETTLE),
             Some(prev) => {
                 let cooled = self
                     .state
                     .last_analyze
-                    .is_none_or(|at| at.elapsed() >= INSIGHT_COOLDOWN);
+                    .is_none_or(|at| now.saturating_duration_since(at) >= INSIGHT_COOLDOWN);
                 let key_changed = key != prev;
                 let high = snapshot.has_new_high_severity(prev);
                 if key_changed {
@@ -78,13 +92,7 @@ impl InsightController {
                     self.state.status == InsightStatus::RequestFailed && cooled
                 }
             }
-        };
-        if !should_send {
-            return false;
         }
-
-        self.queue(serial, snapshot, now);
-        true
     }
 
     /// Applies queued insight channel updates that match the current generation and serial.
@@ -191,5 +199,61 @@ impl Default for InsightState {
             ever_succeeded: false,
             generation: 0,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn error_snapshot(now: Instant) -> InsightSnapshot {
+        build_snapshot(
+            [InsightLine {
+                received_at: now,
+                level: 'E',
+                tag: "Foo".to_string(),
+                message: "boom".to_string(),
+            }],
+            LevelMask::Error,
+            "Pixel",
+            "serial",
+            now,
+        )
+    }
+
+    #[test]
+    fn empty_clusters_do_not_send() {
+        let now = Instant::now();
+        let snapshot = build_snapshot([], LevelMask::Error, "Pixel", "serial", now);
+        let mut controller = InsightController::default();
+        controller.state.last_error_at = Some(now - INSIGHT_SETTLE);
+        assert!(!controller.should_send(&snapshot, now));
+    }
+
+    #[test]
+    fn first_error_after_settle_sends() {
+        let now = Instant::now();
+        let mut controller = InsightController::default();
+        controller.state.last_error_at = Some(now - INSIGHT_SETTLE);
+        assert!(controller.should_send(&error_snapshot(now), now));
+    }
+
+    #[test]
+    fn same_digest_inside_cooldown_does_not_send() {
+        let now = Instant::now();
+        let snapshot = error_snapshot(now);
+        let mut controller = InsightController::default();
+        controller.state.last_sent_key = Some(snapshot.digest_key());
+        controller.state.last_analyze = Some(now);
+        assert!(!controller.should_send(&snapshot, now));
+    }
+
+    #[test]
+    fn request_sent_does_not_send() {
+        let now = Instant::now();
+        let mut controller = InsightController::default();
+        controller.state.status = InsightStatus::RequestSent;
+        controller.state.last_error_at = Some(now - INSIGHT_SETTLE);
+        assert!(!controller.should_send(&error_snapshot(now), now));
     }
 }
