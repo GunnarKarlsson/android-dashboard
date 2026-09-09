@@ -112,14 +112,13 @@ fn load_dotenv() {
     }
 }
 
-/// Installs a stderr `tracing` subscriber with `ai_insight` and `android_terminal` at info.
+/// Installs a stderr `tracing` subscriber.
+/// Uses `RUST_LOG` when set; otherwise `ai_insight=info,android_terminal=info`.
 fn init_tracing() {
     use tracing_subscriber::EnvFilter;
 
     let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("ai_insight=info,android_terminal=info"))
-        .add_directive("ai_insight=info".parse().expect("valid directive"))
-        .add_directive("android_terminal=info".parse().expect("valid directive"));
+        .unwrap_or_else(|_| EnvFilter::new("ai_insight=info,android_terminal=info"));
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_writer(std::io::stderr)
