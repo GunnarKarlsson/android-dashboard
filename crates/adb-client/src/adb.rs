@@ -4,7 +4,7 @@ use std::sync::{LazyLock, Mutex};
 
 use crate::error::AdbError;
 
-/// Serializes `adb shell` commands so fast pollers are not starved by long scans.
+/// All `adb -s` shells share this mutex; poller threads do not run shells in parallel.
 static ADB_SHELL_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 /// Entry point for running `adb` commands.

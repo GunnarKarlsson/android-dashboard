@@ -139,7 +139,7 @@ Expected response format from API:
 
 ## Commands Used by App
 
-Every subprocess the app starts runs `adb` on `PATH`. Device-specific commands are always `adb -s <serial> …`.
+Every subprocess the app starts runs `adb` on `PATH`. Device-specific commands are always `adb -s <serial> …`. All `adb -s` shells share one mutex; poller threads do not run shells in parallel.
 
 ### Host / session
 
