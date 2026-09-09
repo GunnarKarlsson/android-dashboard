@@ -21,7 +21,7 @@ pub use logcat::{LogEntry, LogcatStream};
 pub use network::{NetworkInterfaceStats, NetworkPoller, NetworkStats, NetworkUpdate};
 pub use protocols::{AppTraffic, ProtocolPoller, ProtocolStats, ProtocolUpdate};
 pub use ram::{RamPoller, RamUpdate};
-pub use stats::{MemoryStats, StatsPoller, StatsUpdate, SystemStats};
+pub use stats::MemoryStats;
 pub use storage_breakdown::{
     fetch_storage_overview, StorageBreakdown, StorageBreakdownPoller, StorageBreakdownUpdate,
     StorageCategory, StorageOverview,

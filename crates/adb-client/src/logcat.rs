@@ -75,6 +75,11 @@ impl LogEntry {
         matches!(self.level, 'E' | 'F')
     }
 
+    /// Returns true for synthesized adb/logcat diagnostics (level `E`, tag `adb`).
+    pub fn is_adb_diagnostic(&self) -> bool {
+        self.level == 'E' && self.tag == "adb"
+    }
+
     /// Diagnostic message from adb/logcat (stderr, spawn failures, etc.).
     pub fn adb_diagnostic(message: impl Into<String>) -> Self {
         LogEntry {
@@ -103,25 +108,11 @@ impl LogcatStream {
     /// Spawns `adb -s <serial> logcat -v threadtime` with no filter args and returns a
     /// receiver of parsed entries.
     pub fn spawn(serial: &str) -> Result<(Receiver<LogEntry>, Self), AdbError> {
+        let serial = serial.to_string();
+        let child = spawn_logcat_child(&serial)?;
+
         let (entry_tx, entry_rx) = crossbeam_channel::unbounded();
         let (stop_tx, stop_rx) = crossbeam_channel::unbounded();
-        let serial = serial.to_string();
-
-        let child = match spawn_logcat_child(&serial) {
-            Ok(child) => child,
-            Err(err) => {
-                let _ = entry_tx.send(LogEntry::raw(format!("logcat error: {err}")));
-                return Ok((
-                    entry_rx,
-                    LogcatStream {
-                        stop_tx,
-                        child: None,
-                        join_handle: None,
-                    },
-                ));
-            }
-        };
-
         let child = Arc::new(std::sync::Mutex::new(child));
         let reader_child = child.clone();
         let join_handle = thread::spawn(move || {
@@ -312,10 +303,7 @@ fn parse_logcat_line(line: &str) -> Vec<LogEntry> {
     };
 
     let message = MULTIPLE_SPACES
-        .replace_all(
-            captures.get(6).map(|m| m.as_str()).unwrap_or_default(),
-            " ",
-        )
+        .replace_all(captures.get(6).map(|m| m.as_str()).unwrap_or_default(), " ")
         .trim()
         .to_string();
 
@@ -402,6 +390,7 @@ mod tests {
     fn adb_diagnostic_is_error_level() {
         let entry = LogEntry::adb_diagnostic("device offline");
         assert!(entry.is_error_level());
+        assert!(entry.is_adb_diagnostic());
         assert_eq!(entry.tag, "adb");
     }
 

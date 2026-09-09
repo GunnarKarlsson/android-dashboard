@@ -179,59 +179,43 @@ impl DeviceSession {
         ui_changed: &mut bool,
     ) -> bool {
         let entries = take_log_entries(self.logcat_rx.as_ref());
-        let flush_pending = logcat_errors.auto_update_feed && !logcat_errors.pending.is_empty();
+        let flushed_insight_error = logcat_errors.auto_update_feed
+            && logcat_errors
+                .pending
+                .iter()
+                .any(|line| !line.is_adb_diagnostic());
         let accept_errors_only = logcat_errors.accept_errors_only;
-        let accepted_entry = entries
-            .iter()
-            .any(|entry| !accept_errors_only || entry.is_error_level());
+        let accepted_entry = entries.iter().any(|entry| {
+            !entry.is_adb_diagnostic() && (!accept_errors_only || entry.is_error_level())
+        });
         let updated_all = ingest_log_entries(logcat, &entries);
         let updated_errors = ingest_log_entries(logcat_errors, &entries);
         *ui_changed |= updated_all || updated_errors;
-        flush_pending || accepted_entry
+        flushed_insight_error || accepted_entry
     }
 
     fn drain_network(&mut self, metrics: &mut MetricStore) -> bool {
-        let Some(rx) = self.network_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                NetworkUpdate::Stats(stats) => {
-                    metrics.network_stats = Some(stats);
-                    metrics.network_error = None;
-                    updated = true;
-                }
-                NetworkUpdate::Error(message) => {
-                    metrics.network_error = Some(message);
-                    updated = true;
-                }
+        drain_metric(self.network_rx.as_ref(), |update| match update {
+            NetworkUpdate::Stats(stats) => {
+                metrics.network_stats = Some(stats);
+                metrics.network_error = None;
             }
-        }
-        updated
+            NetworkUpdate::Error(message) => {
+                metrics.network_error = Some(message);
+            }
+        })
     }
 
     fn drain_protocols(&mut self, metrics: &mut MetricStore) -> bool {
-        let Some(rx) = self.protocol_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                ProtocolUpdate::Stats(stats) => {
-                    metrics.protocol_stats = Some(stats);
-                    metrics.protocol_error = None;
-                    updated = true;
-                }
-                ProtocolUpdate::Error(message) => {
-                    metrics.protocol_error = Some(message);
-                    updated = true;
-                }
+        drain_metric(self.protocol_rx.as_ref(), |update| match update {
+            ProtocolUpdate::Stats(stats) => {
+                metrics.protocol_stats = Some(stats);
+                metrics.protocol_error = None;
             }
-        }
-        updated
+            ProtocolUpdate::Error(message) => {
+                metrics.protocol_error = Some(message);
+            }
+        })
     }
 
     fn drain_app_storage(&mut self, metrics: &mut MetricStore) -> bool {
@@ -271,69 +255,39 @@ impl DeviceSession {
     }
 
     fn drain_storage_breakdown(&mut self, metrics: &mut MetricStore) -> bool {
-        let Some(rx) = self.storage_breakdown_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                StorageBreakdownUpdate::Breakdown(breakdown) => {
-                    metrics.storage_breakdown = Some(breakdown);
-                    metrics.storage_breakdown_error = None;
-                    updated = true;
-                }
-                StorageBreakdownUpdate::Error(message) => {
-                    metrics.storage_breakdown_error = Some(message);
-                    updated = true;
-                }
+        drain_metric(self.storage_breakdown_rx.as_ref(), |update| match update {
+            StorageBreakdownUpdate::Breakdown(breakdown) => {
+                metrics.storage_breakdown = Some(breakdown);
+                metrics.storage_breakdown_error = None;
             }
-        }
-        updated
+            StorageBreakdownUpdate::Error(message) => {
+                metrics.storage_breakdown_error = Some(message);
+            }
+        })
     }
 
     fn drain_ram(&mut self, metrics: &mut MetricStore) -> bool {
-        let Some(rx) = self.ram_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                RamUpdate::Memory(memory) => {
-                    metrics.ram_memory = Some(memory);
-                    metrics.ram_error = None;
-                    updated = true;
-                }
-                RamUpdate::Error(message) => {
-                    metrics.ram_error = Some(message);
-                    updated = true;
-                }
+        drain_metric(self.ram_rx.as_ref(), |update| match update {
+            RamUpdate::Memory(memory) => {
+                metrics.ram_memory = Some(memory);
+                metrics.ram_error = None;
             }
-        }
-        updated
+            RamUpdate::Error(message) => {
+                metrics.ram_error = Some(message);
+            }
+        })
     }
 
     fn drain_storage_gauge(&mut self, metrics: &mut MetricStore) -> bool {
-        let Some(rx) = self.storage_gauge_rx.as_ref() else {
-            return false;
-        };
-
-        let mut updated = false;
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                StorageGaugeUpdate::Overview(overview) => {
-                    metrics.storage_gauge = Some(overview);
-                    metrics.storage_gauge_error = None;
-                    updated = true;
-                }
-                StorageGaugeUpdate::Error(message) => {
-                    metrics.storage_gauge_error = Some(message);
-                    updated = true;
-                }
+        drain_metric(self.storage_gauge_rx.as_ref(), |update| match update {
+            StorageGaugeUpdate::Overview(overview) => {
+                metrics.storage_gauge = Some(overview);
+                metrics.storage_gauge_error = None;
             }
-        }
-        updated
+            StorageGaugeUpdate::Error(message) => {
+                metrics.storage_gauge_error = Some(message);
+            }
+        })
     }
 }
 
@@ -346,6 +300,19 @@ fn ingest_log_entries(pane: &mut LogcatPane, entries: &[LogEntry]) -> bool {
     }
     for entry in entries {
         updated |= pane.append_entry(entry);
+    }
+    updated
+}
+
+/// Drains a metric channel, applying each update. Returns true if any update was received.
+fn drain_metric<T>(rx: Option<&Receiver<T>>, mut on_update: impl FnMut(T)) -> bool {
+    let Some(rx) = rx else {
+        return false;
+    };
+    let mut updated = false;
+    while let Ok(update) = rx.try_recv() {
+        on_update(update);
+        updated = true;
     }
     updated
 }

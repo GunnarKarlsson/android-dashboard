@@ -117,11 +117,9 @@ impl App {
     }
 
     pub fn tick(&mut self, ctx: &egui::Context) {
-        let outcome = self.session.drain_into(
-            &mut self.logcat,
-            &mut self.logcat_errors,
-            &mut self.metrics,
-        );
+        let outcome =
+            self.session
+                .drain_into(&mut self.logcat, &mut self.logcat_errors, &mut self.metrics);
         if outcome.error_accepted {
             self.insight.note_error();
         }
@@ -150,12 +148,7 @@ impl App {
             .find(|device| device.serial == serial)
             .map(|device| device.model.clone())
             .unwrap_or_else(|| "unknown".to_string());
-        if self
-            .insight
-            .maybe_request(&serial, &model, self.logcat_errors.insight_lines())
-        {
-            self.insight
-                .request(&serial, &model, self.logcat_errors.insight_lines());
-        }
+        self.insight
+            .maybe_request(&serial, &model, self.logcat_errors.insight_lines());
     }
 }

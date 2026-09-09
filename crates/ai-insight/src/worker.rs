@@ -51,7 +51,7 @@ fn run_insight(
     });
 
     let config = InsightConfig::from_env();
-    match complete(&config, &snapshot) {
+    match complete(&config, &snapshot, generation) {
         Ok(text) => {
             let _ = tx.send(InsightUpdate::Reply {
                 generation,

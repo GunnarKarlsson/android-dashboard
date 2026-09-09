@@ -87,10 +87,12 @@ impl LogcatPane {
     }
 
     /// Returns log lines from the visible ring buffer followed by the pending ring buffer.
+    /// Omits synthesized adb diagnostics.
     pub(crate) fn insight_lines(&self) -> impl Iterator<Item = InsightLine> + '_ {
         self.lines
             .iter()
             .chain(self.pending.iter())
+            .filter(|line| !line.is_adb_diagnostic())
             .map(CachedLogLine::to_insight_line)
     }
 
@@ -125,6 +127,11 @@ impl CachedLogLine {
             message: entry.message.clone(),
             received_at: Instant::now(),
         }
+    }
+
+    /// Returns true for synthesized adb/logcat diagnostics (level `E`, tag `adb`).
+    pub(crate) fn is_adb_diagnostic(&self) -> bool {
+        self.level == 'E' && self.tag == "adb"
     }
 
     /// Builds an `InsightLine` from this cached log line.
@@ -193,5 +200,103 @@ fn remove_tag_filter(filters: &mut Vec<LogcatTagFilter>, index: usize) {
 fn trim_buffer(buffer: &mut VecDeque<CachedLogLine>) {
     while buffer.len() > MAX_LOG_LINES {
         buffer.pop_front();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry(level: char, message: &str) -> LogEntry {
+        LogEntry {
+            timestamp: "09-01 17:00:01.456".to_string(),
+            pid: 1,
+            tid: 1,
+            level,
+            tag: "Tag".to_string(),
+            message: message.to_string(),
+        }
+    }
+
+    #[test]
+    fn accept_errors_only_drops_info_and_warning() {
+        let mut pane = LogcatPane {
+            accept_errors_only: true,
+            ..LogcatPane::default()
+        };
+        assert!(!pane.append_entry(&entry('I', "info")));
+        assert!(!pane.append_entry(&entry('W', "warn")));
+        assert!(pane.append_entry(&entry('E', "err")));
+        assert!(pane.append_entry(&entry('F', "fatal")));
+        assert_eq!(pane.lines.len(), 2);
+        assert_eq!(pane.lines[0].level, 'E');
+        assert_eq!(pane.lines[1].level, 'F');
+        assert!(pane.pending.is_empty());
+    }
+
+    #[test]
+    fn pause_sends_to_pending_and_leaves_lines() {
+        let mut pane = LogcatPane {
+            auto_update_feed: false,
+            ..LogcatPane::default()
+        };
+        assert!(!pane.append_entry(&entry('E', "err")));
+        assert!(pane.lines.is_empty());
+        assert_eq!(pane.pending.len(), 1);
+        assert_eq!(pane.pending[0].message, "err");
+    }
+
+    #[test]
+    fn flush_pending_moves_onto_lines() {
+        let mut pane = LogcatPane {
+            auto_update_feed: false,
+            ..LogcatPane::default()
+        };
+        pane.append_entry(&entry('E', "err"));
+        assert!(pane.flush_pending());
+        assert_eq!(pane.lines.len(), 1);
+        assert_eq!(pane.lines[0].message, "err");
+        assert!(pane.pending.is_empty());
+    }
+
+    #[test]
+    fn resume_flushes_pending_onto_lines() {
+        let mut pane = LogcatPane {
+            auto_update_feed: false,
+            ..LogcatPane::default()
+        };
+        pane.append_entry(&entry('E', "paused"));
+        pane.auto_update_feed = true;
+        pane.append_entry(&entry('F', "live"));
+        assert_eq!(pane.lines.len(), 2);
+        assert_eq!(pane.lines[0].message, "paused");
+        assert_eq!(pane.lines[1].message, "live");
+        assert!(pane.pending.is_empty());
+    }
+
+    #[test]
+    fn insight_lines_includes_pending() {
+        let mut pane = LogcatPane::default();
+        pane.append_entry(&entry('E', "visible"));
+        pane.auto_update_feed = false;
+        pane.append_entry(&entry('F', "pending"));
+        let lines: Vec<_> = pane.insight_lines().collect();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0].message, "visible");
+        assert_eq!(lines[1].message, "pending");
+    }
+
+    #[test]
+    fn insight_lines_omits_adb_diagnostics() {
+        let mut pane = LogcatPane {
+            accept_errors_only: true,
+            ..LogcatPane::default()
+        };
+        pane.append_entry(&entry('E', "real"));
+        pane.append_entry(&LogEntry::adb_diagnostic("device offline"));
+        let lines: Vec<_> = pane.insight_lines().collect();
+        assert_eq!(pane.lines.len(), 2);
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].message, "real");
     }
 }
