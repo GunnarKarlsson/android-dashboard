@@ -117,11 +117,9 @@ impl App {
     }
 
     pub fn tick(&mut self, ctx: &egui::Context) {
-        let outcome = self.session.drain_into(
-            &mut self.logcat,
-            &mut self.logcat_errors,
-            &mut self.metrics,
-        );
+        let outcome =
+            self.session
+                .drain_into(&mut self.logcat, &mut self.logcat_errors, &mut self.metrics);
         if outcome.error_accepted {
             self.insight.note_error();
         }

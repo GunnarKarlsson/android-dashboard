@@ -164,10 +164,7 @@ impl InsightController {
             self.state.generation,
             serial.to_string(),
         ));
-        tracing::info!(
-            generation = self.state.generation,
-            "insight request queued"
-        );
+        tracing::info!(generation = self.state.generation, "insight request queued");
     }
 }
 

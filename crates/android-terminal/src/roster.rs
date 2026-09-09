@@ -35,9 +35,10 @@ impl DeviceRoster {
     fn apply_devices(&mut self, devices: Vec<DeviceInfo>) -> RosterEvent {
         self.devices = devices;
         let lost_selection = self.selected_serial.as_ref().is_some_and(|serial| {
-            !self.devices.iter().any(|device| {
-                device.serial == *serial && device.state == DeviceState::Device
-            })
+            !self
+                .devices
+                .iter()
+                .any(|device| device.serial == *serial && device.state == DeviceState::Device)
         });
 
         if lost_selection {
