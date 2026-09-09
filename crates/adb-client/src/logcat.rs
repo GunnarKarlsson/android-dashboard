@@ -75,6 +75,11 @@ impl LogEntry {
         matches!(self.level, 'E' | 'F')
     }
 
+    /// Returns true for synthesized adb/logcat diagnostics (level `E`, tag `adb`).
+    pub fn is_adb_diagnostic(&self) -> bool {
+        self.level == 'E' && self.tag == "adb"
+    }
+
     /// Diagnostic message from adb/logcat (stderr, spawn failures, etc.).
     pub fn adb_diagnostic(message: impl Into<String>) -> Self {
         LogEntry {
@@ -385,6 +390,7 @@ mod tests {
     fn adb_diagnostic_is_error_level() {
         let entry = LogEntry::adb_diagnostic("device offline");
         assert!(entry.is_error_level());
+        assert!(entry.is_adb_diagnostic());
         assert_eq!(entry.tag, "adb");
     }
 

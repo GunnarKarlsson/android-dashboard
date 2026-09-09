@@ -179,15 +179,19 @@ impl DeviceSession {
         ui_changed: &mut bool,
     ) -> bool {
         let entries = take_log_entries(self.logcat_rx.as_ref());
-        let flush_pending = logcat_errors.auto_update_feed && !logcat_errors.pending.is_empty();
+        let flushed_insight_error = logcat_errors.auto_update_feed
+            && logcat_errors
+                .pending
+                .iter()
+                .any(|line| !line.is_adb_diagnostic());
         let accept_errors_only = logcat_errors.accept_errors_only;
-        let accepted_entry = entries
-            .iter()
-            .any(|entry| !accept_errors_only || entry.is_error_level());
+        let accepted_entry = entries.iter().any(|entry| {
+            !entry.is_adb_diagnostic() && (!accept_errors_only || entry.is_error_level())
+        });
         let updated_all = ingest_log_entries(logcat, &entries);
         let updated_errors = ingest_log_entries(logcat_errors, &entries);
         *ui_changed |= updated_all || updated_errors;
-        flush_pending || accepted_entry
+        flushed_insight_error || accepted_entry
     }
 
     fn drain_network(&mut self, metrics: &mut MetricStore) -> bool {

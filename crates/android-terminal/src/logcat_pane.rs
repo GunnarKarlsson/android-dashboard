@@ -87,10 +87,12 @@ impl LogcatPane {
     }
 
     /// Returns log lines from the visible ring buffer followed by the pending ring buffer.
+    /// Omits synthesized adb diagnostics.
     pub(crate) fn insight_lines(&self) -> impl Iterator<Item = InsightLine> + '_ {
         self.lines
             .iter()
             .chain(self.pending.iter())
+            .filter(|line| !line.is_adb_diagnostic())
             .map(CachedLogLine::to_insight_line)
     }
 
@@ -125,6 +127,11 @@ impl CachedLogLine {
             message: entry.message.clone(),
             received_at: Instant::now(),
         }
+    }
+
+    /// Returns true for synthesized adb/logcat diagnostics (level `E`, tag `adb`).
+    pub(crate) fn is_adb_diagnostic(&self) -> bool {
+        self.level == 'E' && self.tag == "adb"
     }
 
     /// Builds an `InsightLine` from this cached log line.
@@ -277,5 +284,19 @@ mod tests {
         assert_eq!(lines.len(), 2);
         assert_eq!(lines[0].message, "visible");
         assert_eq!(lines[1].message, "pending");
+    }
+
+    #[test]
+    fn insight_lines_omits_adb_diagnostics() {
+        let mut pane = LogcatPane {
+            accept_errors_only: true,
+            ..LogcatPane::default()
+        };
+        pane.append_entry(&entry('E', "real"));
+        pane.append_entry(&LogEntry::adb_diagnostic("device offline"));
+        let lines: Vec<_> = pane.insight_lines().collect();
+        assert_eq!(pane.lines.len(), 2);
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].message, "real");
     }
 }
