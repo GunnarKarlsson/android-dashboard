@@ -7,7 +7,7 @@ use crate::theme;
 use crate::ui_elements;
 
 pub fn network_panel(ui: &mut egui::Ui, app: &App) {
-    if let Some(error) = &app.network_error {
+    if let Some(error) = &app.metrics.network_error {
         ui_elements::error_label(ui, error);
     }
 
@@ -16,7 +16,7 @@ pub fn network_panel(ui: &mut egui::Ui, app: &App) {
         return;
     }
 
-    let Some(stats) = &app.network_stats else {
+    let Some(stats) = &app.metrics.network_stats else {
         if app.network_rx.is_some() {
             ui.label("Fetching network stats…");
         } else {

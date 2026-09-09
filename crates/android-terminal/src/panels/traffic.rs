@@ -7,7 +7,7 @@ use crate::theme;
 use crate::ui_elements;
 
 pub fn protocols_panel(ui: &mut egui::Ui, app: &App) {
-    if let Some(error) = &app.protocol_error {
+    if let Some(error) = &app.metrics.protocol_error {
         ui_elements::error_label(ui, error);
     }
 
@@ -17,7 +17,7 @@ pub fn protocols_panel(ui: &mut egui::Ui, app: &App) {
             return;
         }
 
-        let Some(stats) = &app.protocol_stats else {
+        let Some(stats) = &app.metrics.protocol_stats else {
             if app.protocol_rx.is_some() {
                 ui.label("Fetching app traffic…");
             } else {

@@ -9,10 +9,10 @@ use crate::ui_elements;
 use super::donut::show_usage_donut;
 
 pub fn storage_usage_panel(ui: &mut egui::Ui, app: &App) {
-    if let Some(error) = &app.storage_breakdown_error {
+    if let Some(error) = &app.metrics.storage_breakdown_error {
         ui_elements::error_label(ui, error);
     }
-    if let Some(error) = &app.app_storage.error {
+    if let Some(error) = &app.metrics.app_storage.error {
         ui_elements::error_label(ui, error);
     }
 
@@ -27,13 +27,13 @@ pub fn storage_usage_panel(ui: &mut egui::Ui, app: &App) {
             .auto_shrink([false, false])
             .max_height(ui.available_height())
             .show(ui, |ui| {
-                if let Some(breakdown) = &app.storage_breakdown {
+                if let Some(breakdown) = &app.metrics.storage_breakdown {
                     show_storage_categories(ui, &breakdown.categories);
                 } else if app.storage_breakdown_rx.is_some() {
                     ui.label("Loading storage…");
                 }
                 ui.separator();
-                show_app_storage(ui, &app.app_storage);
+                show_app_storage(ui, &app.metrics.app_storage);
             });
     });
 }
@@ -44,11 +44,11 @@ pub fn storage_gauge_panel(ui: &mut egui::Ui, app: &App) {
         return;
     }
 
-    if let Some(error) = &app.storage_gauge_error {
+    if let Some(error) = &app.metrics.storage_gauge_error {
         ui_elements::error_label(ui, error);
     }
 
-    let Some(overview) = &app.storage_gauge else {
+    let Some(overview) = &app.metrics.storage_gauge else {
         ui_elements::panel_loading(ui);
         return;
     };

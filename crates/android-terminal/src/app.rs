@@ -2,10 +2,9 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
 use adb_client::{
-    AppStoragePoller, AppStorageUpdate, DeviceInfo, LogEntry, LogcatStream, MemoryStats,
-    NetworkPoller, NetworkStats, NetworkUpdate, ProtocolPoller, ProtocolStats, ProtocolUpdate,
-    RamPoller, RamUpdate, StorageBreakdown, StorageBreakdownPoller, StorageBreakdownUpdate,
-    StorageGaugePoller, StorageGaugeUpdate, StorageOverview,
+    AppStoragePoller, AppStorageUpdate, DeviceInfo, LogEntry, LogcatStream, NetworkPoller,
+    NetworkUpdate, ProtocolPoller, ProtocolUpdate, RamPoller, RamUpdate, StorageBreakdownPoller,
+    StorageBreakdownUpdate, StorageGaugePoller, StorageGaugeUpdate,
 };
 use ai_insight::{build_snapshot, spawn_insight, InsightUpdate, LevelMask};
 use crossbeam_channel::Receiver;
@@ -32,26 +31,14 @@ pub struct App {
     pub network_poller: Option<NetworkPoller>,
     pub protocol_rx: Option<Receiver<ProtocolUpdate>>,
     pub protocol_poller: Option<ProtocolPoller>,
-    pub network_stats: Option<NetworkStats>,
-    pub network_error: Option<String>,
-    pub protocol_stats: Option<ProtocolStats>,
-    pub protocol_error: Option<String>,
     pub app_storage_rx: Option<Receiver<AppStorageUpdate>>,
     pub app_storage_poller: Option<AppStoragePoller>,
-    pub app_storage: AppStorageState,
     pub storage_breakdown_rx: Option<Receiver<StorageBreakdownUpdate>>,
     pub storage_breakdown_poller: Option<StorageBreakdownPoller>,
-    pub storage_breakdown: Option<StorageBreakdown>,
-    pub storage_breakdown_error: Option<String>,
     pub ram_rx: Option<Receiver<RamUpdate>>,
     pub ram_poller: Option<RamPoller>,
-    pub ram_memory: Option<MemoryStats>,
-    pub ram_error: Option<String>,
     pub storage_gauge_rx: Option<Receiver<StorageGaugeUpdate>>,
     pub storage_gauge_poller: Option<StorageGaugePoller>,
-    pub storage_gauge: Option<StorageOverview>,
-    pub storage_gauge_error: Option<String>,
-    #[allow(dead_code)]
     pub metrics: MetricStore,
     pub insight_auto_update_feed: bool,
     pub logcat: LogcatPane,
@@ -117,25 +104,14 @@ impl App {
             network_poller: None,
             protocol_rx: None,
             protocol_poller: None,
-            network_stats: None,
-            network_error: None,
-            protocol_stats: None,
-            protocol_error: None,
             app_storage_rx: None,
             app_storage_poller: None,
-            app_storage: AppStorageState::default(),
             storage_breakdown_rx: None,
             storage_breakdown_poller: None,
-            storage_breakdown: None,
-            storage_breakdown_error: None,
             ram_rx: None,
             ram_poller: None,
-            ram_memory: None,
-            ram_error: None,
             storage_gauge_rx: None,
             storage_gauge_poller: None,
-            storage_gauge: None,
-            storage_gauge_error: None,
             metrics: MetricStore::default(),
             insight_auto_update_feed: true,
             logcat: LogcatPane::default(),
@@ -223,7 +199,7 @@ impl App {
                 self.ram_rx = Some(rx);
                 self.ram_poller = Some(poller);
             }
-            Err(err) => self.ram_error = Some(err.user_message()),
+            Err(err) => self.metrics.ram_error = Some(err.user_message()),
         }
 
         match StorageGaugePoller::spawn(serial) {
@@ -231,7 +207,7 @@ impl App {
                 self.storage_gauge_rx = Some(rx);
                 self.storage_gauge_poller = Some(poller);
             }
-            Err(err) => self.storage_gauge_error = Some(err.user_message()),
+            Err(err) => self.metrics.storage_gauge_error = Some(err.user_message()),
         }
 
         match StorageBreakdownPoller::spawn(serial) {
@@ -239,7 +215,7 @@ impl App {
                 self.storage_breakdown_rx = Some(rx);
                 self.storage_breakdown_poller = Some(poller);
             }
-            Err(err) => self.storage_breakdown_error = Some(err.user_message()),
+            Err(err) => self.metrics.storage_breakdown_error = Some(err.user_message()),
         }
 
         match NetworkPoller::spawn(serial) {
@@ -247,7 +223,7 @@ impl App {
                 self.network_rx = Some(rx);
                 self.network_poller = Some(poller);
             }
-            Err(err) => self.network_error = Some(err.user_message()),
+            Err(err) => self.metrics.network_error = Some(err.user_message()),
         }
 
         match ProtocolPoller::spawn(serial) {
@@ -255,7 +231,7 @@ impl App {
                 self.protocol_rx = Some(rx);
                 self.protocol_poller = Some(poller);
             }
-            Err(err) => self.protocol_error = Some(err.user_message()),
+            Err(err) => self.metrics.protocol_error = Some(err.user_message()),
         }
 
         // Heavy per-package scan; start after fast pollers and an internal delay.
@@ -263,26 +239,16 @@ impl App {
             Ok((rx, poller)) => {
                 self.app_storage_rx = Some(rx);
                 self.app_storage_poller = Some(poller);
-                self.app_storage.scanning = true;
+                self.metrics.app_storage.scanning = true;
             }
-            Err(err) => self.app_storage.error = Some(err.user_message()),
+            Err(err) => self.metrics.app_storage.error = Some(err.user_message()),
         }
     }
 
     fn clear_device_data(&mut self) {
         self.logcat.reset_view();
         self.logcat_errors.reset_view();
-        self.network_stats = None;
-        self.network_error = None;
-        self.protocol_stats = None;
-        self.protocol_error = None;
-        self.app_storage = AppStorageState::default();
-        self.storage_breakdown = None;
-        self.storage_breakdown_error = None;
-        self.ram_memory = None;
-        self.ram_error = None;
-        self.storage_gauge = None;
-        self.storage_gauge_error = None;
+        self.metrics = MetricStore::default();
         self.insight = InsightState::default();
         self.insight_rx = None;
         self.insight_serial = None;
@@ -521,12 +487,12 @@ impl App {
         while let Ok(update) = rx.try_recv() {
             match update {
                 NetworkUpdate::Stats(stats) => {
-                    self.network_stats = Some(stats);
-                    self.network_error = None;
+                    self.metrics.network_stats = Some(stats);
+                    self.metrics.network_error = None;
                     updated = true;
                 }
                 NetworkUpdate::Error(message) => {
-                    self.network_error = Some(message);
+                    self.metrics.network_error = Some(message);
                     updated = true;
                 }
             }
@@ -543,12 +509,12 @@ impl App {
         while let Ok(update) = rx.try_recv() {
             match update {
                 ProtocolUpdate::Stats(stats) => {
-                    self.protocol_stats = Some(stats);
-                    self.protocol_error = None;
+                    self.metrics.protocol_stats = Some(stats);
+                    self.metrics.protocol_error = None;
                     updated = true;
                 }
                 ProtocolUpdate::Error(message) => {
-                    self.protocol_error = Some(message);
+                    self.metrics.protocol_error = Some(message);
                     updated = true;
                 }
             }
@@ -565,25 +531,26 @@ impl App {
         while let Ok(update) = rx.try_recv() {
             match update {
                 AppStorageUpdate::PackageList(packages) => {
-                    if self.app_storage.packages.is_empty() {
-                        self.app_storage.set_packages(packages);
+                    if self.metrics.app_storage.packages.is_empty() {
+                        self.metrics.app_storage.set_packages(packages);
                     } else {
-                        self.app_storage.merge_packages(packages);
+                        self.metrics.app_storage.merge_packages(packages);
                     }
-                    self.app_storage.error = None;
+                    self.metrics.app_storage.error = None;
                     updated = true;
                 }
                 AppStorageUpdate::PackageStorage(storage) => {
-                    self.app_storage
+                    self.metrics
+                        .app_storage
                         .set_size(&storage.package, storage.total_bytes);
                     updated = true;
                 }
                 AppStorageUpdate::ScanComplete => {
-                    self.app_storage.scanning = false;
+                    self.metrics.app_storage.scanning = false;
                     updated = true;
                 }
                 AppStorageUpdate::Error(message) => {
-                    self.app_storage.error = Some(message);
+                    self.metrics.app_storage.error = Some(message);
                     updated = true;
                 }
             }
@@ -600,12 +567,12 @@ impl App {
         while let Ok(update) = rx.try_recv() {
             match update {
                 StorageBreakdownUpdate::Breakdown(breakdown) => {
-                    self.storage_breakdown = Some(breakdown);
-                    self.storage_breakdown_error = None;
+                    self.metrics.storage_breakdown = Some(breakdown);
+                    self.metrics.storage_breakdown_error = None;
                     updated = true;
                 }
                 StorageBreakdownUpdate::Error(message) => {
-                    self.storage_breakdown_error = Some(message);
+                    self.metrics.storage_breakdown_error = Some(message);
                     updated = true;
                 }
             }
@@ -622,12 +589,12 @@ impl App {
         while let Ok(update) = rx.try_recv() {
             match update {
                 RamUpdate::Memory(memory) => {
-                    self.ram_memory = Some(memory);
-                    self.ram_error = None;
+                    self.metrics.ram_memory = Some(memory);
+                    self.metrics.ram_error = None;
                     updated = true;
                 }
                 RamUpdate::Error(message) => {
-                    self.ram_error = Some(message);
+                    self.metrics.ram_error = Some(message);
                     updated = true;
                 }
             }
@@ -644,12 +611,12 @@ impl App {
         while let Ok(update) = rx.try_recv() {
             match update {
                 StorageGaugeUpdate::Overview(overview) => {
-                    self.storage_gauge = Some(overview);
-                    self.storage_gauge_error = None;
+                    self.metrics.storage_gauge = Some(overview);
+                    self.metrics.storage_gauge_error = None;
                     updated = true;
                 }
                 StorageGaugeUpdate::Error(message) => {
-                    self.storage_gauge_error = Some(message);
+                    self.metrics.storage_gauge_error = Some(message);
                     updated = true;
                 }
             }

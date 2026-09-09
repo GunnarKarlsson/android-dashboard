@@ -44,7 +44,6 @@ impl AppStorageState {
     }
 }
 
-#[allow(dead_code)]
 pub struct MetricStore {
     pub ram_memory: Option<MemoryStats>,
     pub ram_error: Option<String>,

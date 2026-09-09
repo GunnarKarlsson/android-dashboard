@@ -13,11 +13,11 @@ pub fn ram_gauge_panel(ui: &mut egui::Ui, app: &App) {
         return;
     }
 
-    if let Some(error) = &app.ram_error {
+    if let Some(error) = &app.metrics.ram_error {
         ui_elements::error_label(ui, error);
     }
 
-    let Some(memory) = &app.ram_memory else {
+    let Some(memory) = &app.metrics.ram_memory else {
         ui_elements::panel_loading(ui);
         return;
     };
