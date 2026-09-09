@@ -100,25 +100,14 @@ pub struct LogcatStream {
 }
 
 impl LogcatStream {
-    /// Spawns `adb -s <serial> logcat -v threadtime` and returns a receiver of parsed entries.
+    /// Spawns `adb -s <serial> logcat -v threadtime` with no filter args and returns a
+    /// receiver of parsed entries.
     pub fn spawn(serial: &str) -> Result<(Receiver<LogEntry>, Self), AdbError> {
-        Self::spawn_with_filters(serial, Vec::new())
-    }
-
-    /// Spawns a separate logcat process filtered to Error and Fatal (`*:E`).
-    pub fn spawn_errors(serial: &str) -> Result<(Receiver<LogEntry>, Self), AdbError> {
-        Self::spawn_with_filters(serial, vec!["*:E".to_string()])
-    }
-
-    fn spawn_with_filters(
-        serial: &str,
-        filters: Vec<String>,
-    ) -> Result<(Receiver<LogEntry>, Self), AdbError> {
         let (entry_tx, entry_rx) = crossbeam_channel::unbounded();
         let (stop_tx, stop_rx) = crossbeam_channel::unbounded();
         let serial = serial.to_string();
 
-        let child = match spawn_logcat_child(&serial, &filters) {
+        let child = match spawn_logcat_child(&serial) {
             Ok(child) => child,
             Err(err) => {
                 let _ = entry_tx.send(LogEntry::raw(format!("logcat error: {err}")));
@@ -170,10 +159,9 @@ impl Drop for LogcatStream {
     }
 }
 
-fn spawn_logcat_child(serial: &str, filters: &[String]) -> Result<Child, AdbError> {
+fn spawn_logcat_child(serial: &str) -> Result<Child, AdbError> {
     Command::new("adb")
         .args(["-s", serial, "logcat", "-v", "threadtime"])
-        .args(filters)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()

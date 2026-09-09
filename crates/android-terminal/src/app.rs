@@ -28,8 +28,6 @@ pub struct App {
     pub selected_serial: Option<String>,
     pub logcat_rx: Option<Receiver<LogEntry>>,
     pub logcat_stream: Option<LogcatStream>,
-    pub error_logcat_rx: Option<Receiver<LogEntry>>,
-    pub error_logcat_stream: Option<LogcatStream>,
     pub network_rx: Option<Receiver<NetworkUpdate>>,
     pub network_poller: Option<NetworkPoller>,
     pub protocol_rx: Option<Receiver<ProtocolUpdate>>,
@@ -53,23 +51,9 @@ pub struct App {
     pub storage_gauge_poller: Option<StorageGaugePoller>,
     pub storage_gauge: Option<StorageOverview>,
     pub storage_gauge_error: Option<String>,
-    pub log_lines: VecDeque<CachedLogLine>,
-    pub pending_log_lines: VecDeque<CachedLogLine>,
-    pub error_lines: VecDeque<CachedLogLine>,
-    pub pending_error_lines: VecDeque<CachedLogLine>,
-    pub logcat_error: Option<String>,
-    pub error_logcat_error: Option<String>,
-    pub auto_update_feed: bool,
-    pub error_auto_update_feed: bool,
     pub insight_auto_update_feed: bool,
-    pub logcat_show_timestamps: bool,
-    pub error_show_timestamps: bool,
-    pub logcat_filter: String,
-    pub error_logcat_filter: String,
-    pub logcat_tag_input: String,
-    pub logcat_tag_filters: Vec<LogcatTagFilter>,
-    pub error_logcat_tag_input: String,
-    pub error_logcat_tag_filters: Vec<LogcatTagFilter>,
+    pub logcat: LogcatPane,
+    pub logcat_errors: LogcatPane,
     pub insight: InsightState,
     insight_rx: Option<Receiver<InsightUpdate>>,
     insight_serial: Option<String>,
@@ -154,6 +138,87 @@ pub struct LogcatTagFilter {
     pub color_index: usize,
 }
 
+/// Visible ring buffer, pending ring buffer, and filter state for one logcat pane.
+pub struct LogcatPane {
+    pub lines: VecDeque<CachedLogLine>,
+    pub pending: VecDeque<CachedLogLine>,
+    pub tag_input: String,
+    pub tag_filters: Vec<LogcatTagFilter>,
+    pub auto_update_feed: bool,
+    pub show_timestamps: bool,
+    pub error: Option<String>,
+    pub accept_errors_only: bool,
+}
+
+impl Default for LogcatPane {
+    fn default() -> Self {
+        Self {
+            lines: VecDeque::new(),
+            pending: VecDeque::new(),
+            tag_input: String::new(),
+            tag_filters: Vec::new(),
+            auto_update_feed: true,
+            show_timestamps: true,
+            error: None,
+            accept_errors_only: false,
+        }
+    }
+}
+
+impl LogcatPane {
+    /// Clears lines, pending, tags, and error, and turns auto-update on.
+    /// Leaves `accept_errors_only` and `show_timestamps` unchanged.
+    fn reset_view(&mut self) {
+        self.lines.clear();
+        self.pending.clear();
+        self.tag_input.clear();
+        self.tag_filters.clear();
+        self.auto_update_feed = true;
+        self.error = None;
+    }
+
+    /// Appends `entry` to the visible ring buffer when auto-update is on, or to the pending
+    /// ring buffer when it is off.
+    ///
+    /// Skips the entry when `accept_errors_only` is set and the entry is not Error or Fatal.
+    /// Returns true when the visible ring buffer changed.
+    fn append_entry(&mut self, entry: &LogEntry) -> bool {
+        if self.accept_errors_only && !entry.is_error_level() {
+            return false;
+        }
+
+        if self.auto_update_feed {
+            self.flush_pending();
+            self.lines.push_back(CachedLogLine::from_entry(entry));
+            trim_buffer(&mut self.lines);
+            true
+        } else {
+            self.pending.push_back(CachedLogLine::from_entry(entry));
+            trim_buffer(&mut self.pending);
+            false
+        }
+    }
+
+    /// Moves pending lines onto the visible ring buffer. Returns true if any line was moved.
+    fn flush_pending(&mut self) -> bool {
+        if self.pending.is_empty() {
+            return false;
+        }
+
+        self.lines.extend(self.pending.drain(..));
+        trim_buffer(&mut self.lines);
+        true
+    }
+
+    /// Returns log lines from the visible ring buffer followed by the pending ring buffer.
+    fn insight_lines(&self) -> impl Iterator<Item = InsightLine> + '_ {
+        self.lines
+            .iter()
+            .chain(self.pending.iter())
+            .map(CachedLogLine::to_insight_line)
+    }
+}
+
 #[derive(Clone)]
 pub struct CachedLogLine {
     full: String,
@@ -176,16 +241,22 @@ impl CachedLogLine {
         }
     }
 
+    /// Builds an `InsightLine` from this cached log line.
+    fn to_insight_line(&self) -> InsightLine {
+        InsightLine {
+            received_at: self.received_at,
+            level: self.level,
+            tag: self.tag.clone(),
+            message: self.message.clone(),
+        }
+    }
+
     pub fn display(&self, show_timestamp: bool) -> &str {
         if show_timestamp {
             &self.full
         } else {
             &self.compact
         }
-    }
-
-    pub fn matches_filter(&self, filter_lower: &str) -> bool {
-        self.full.to_lowercase().contains(filter_lower)
     }
 
     pub fn matches_tag_filters(
@@ -223,8 +294,6 @@ impl App {
             selected_serial: None,
             logcat_rx: None,
             logcat_stream: None,
-            error_logcat_rx: None,
-            error_logcat_stream: None,
             network_rx: None,
             network_poller: None,
             protocol_rx: None,
@@ -248,23 +317,12 @@ impl App {
             storage_gauge_poller: None,
             storage_gauge: None,
             storage_gauge_error: None,
-            log_lines: VecDeque::new(),
-            pending_log_lines: VecDeque::new(),
-            error_lines: VecDeque::new(),
-            pending_error_lines: VecDeque::new(),
-            logcat_error: None,
-            error_logcat_error: None,
-            auto_update_feed: true,
-            error_auto_update_feed: true,
             insight_auto_update_feed: true,
-            logcat_show_timestamps: true,
-            error_show_timestamps: true,
-            logcat_filter: String::new(),
-            error_logcat_filter: String::new(),
-            logcat_tag_input: String::new(),
-            logcat_tag_filters: Vec::new(),
-            error_logcat_tag_input: String::new(),
-            error_logcat_tag_filters: Vec::new(),
+            logcat: LogcatPane::default(),
+            logcat_errors: LogcatPane {
+                accept_errors_only: true,
+                ..LogcatPane::default()
+            },
             insight: InsightState::default(),
             insight_rx: None,
             insight_serial: None,
@@ -276,22 +334,22 @@ impl App {
     }
 
     pub fn add_logcat_tag(&mut self) {
-        add_tag_filter(&mut self.logcat_tag_input, &mut self.logcat_tag_filters);
+        add_tag_filter(&mut self.logcat.tag_input, &mut self.logcat.tag_filters);
     }
 
     pub fn remove_logcat_tag(&mut self, index: usize) {
-        remove_tag_filter(&mut self.logcat_tag_filters, index);
+        remove_tag_filter(&mut self.logcat.tag_filters, index);
     }
 
     pub fn add_error_logcat_tag(&mut self) {
         add_tag_filter(
-            &mut self.error_logcat_tag_input,
-            &mut self.error_logcat_tag_filters,
+            &mut self.logcat_errors.tag_input,
+            &mut self.logcat_errors.tag_filters,
         );
     }
 
     pub fn remove_error_logcat_tag(&mut self, index: usize) {
-        remove_tag_filter(&mut self.error_logcat_tag_filters, index);
+        remove_tag_filter(&mut self.logcat_errors.tag_filters, index);
     }
 
     pub fn refresh_devices(&mut self) {
@@ -349,15 +407,11 @@ impl App {
                 self.logcat_rx = Some(rx);
                 self.logcat_stream = Some(stream);
             }
-            Err(err) => self.logcat_error = Some(err.user_message()),
-        }
-
-        match LogcatStream::spawn_errors(serial) {
-            Ok((rx, stream)) => {
-                self.error_logcat_rx = Some(rx);
-                self.error_logcat_stream = Some(stream);
+            Err(err) => {
+                let message = err.user_message();
+                self.logcat.error = Some(message.clone());
+                self.logcat_errors.error = Some(message);
             }
-            Err(err) => self.error_logcat_error = Some(err.user_message()),
         }
 
         match RamPoller::spawn(serial) {
@@ -412,16 +466,8 @@ impl App {
     }
 
     fn clear_device_data(&mut self) {
-        self.log_lines.clear();
-        self.error_lines.clear();
-        self.logcat_error = None;
-        self.error_logcat_error = None;
-        self.logcat_filter.clear();
-        self.error_logcat_filter.clear();
-        self.logcat_tag_input.clear();
-        self.logcat_tag_filters.clear();
-        self.error_logcat_tag_input.clear();
-        self.error_logcat_tag_filters.clear();
+        self.logcat.reset_view();
+        self.logcat_errors.reset_view();
         self.network_stats = None;
         self.network_error = None;
         self.protocol_stats = None;
@@ -453,13 +499,13 @@ impl App {
             .map(|device| device.model.as_str())
             .unwrap_or("unknown");
         let now = Instant::now();
-        let lines = self.error_lines.iter().map(|line| InsightLine {
-            received_at: line.received_at,
-            level: line.level,
-            tag: line.tag.clone(),
-            message: line.message.clone(),
-        });
-        let snapshot = build_snapshot(lines, LevelMask::Error, model, &serial, now);
+        let snapshot = build_snapshot(
+            self.logcat_errors.insight_lines(),
+            LevelMask::Error,
+            model,
+            &serial,
+            now,
+        );
         if snapshot.clusters.is_empty() {
             return;
         }
@@ -495,13 +541,13 @@ impl App {
             .map(|device| device.model.as_str())
             .unwrap_or("unknown");
         let now = Instant::now();
-        let lines = self.error_lines.iter().map(|line| InsightLine {
-            received_at: line.received_at,
-            level: line.level,
-            tag: line.tag.clone(),
-            message: line.message.clone(),
-        });
-        let snapshot = build_snapshot(lines, LevelMask::Error, model, &serial, now);
+        let snapshot = build_snapshot(
+            self.logcat_errors.insight_lines(),
+            LevelMask::Error,
+            model,
+            &serial,
+            now,
+        );
         if snapshot.clusters.is_empty() {
             return;
         }
@@ -642,81 +688,22 @@ impl App {
             stream.stop();
         }
         self.logcat_rx = None;
-        if let Some(stream) = self.error_logcat_stream.take() {
-            stream.stop();
-        }
-        self.error_logcat_rx = None;
     }
 
     fn drain_logcat(&mut self) -> bool {
         let entries = take_log_entries(self.logcat_rx.as_ref());
-
-        if self.auto_update_feed {
-            let mut updated = false;
-            if !self.pending_log_lines.is_empty() {
-                self.log_lines.extend(self.pending_log_lines.drain(..));
-                trim_buffer(&mut self.log_lines);
-                updated = true;
-            }
-            if !entries.is_empty() {
-                for entry in entries {
-                    self.log_lines.push_back(CachedLogLine::from_entry(&entry));
-                }
-                trim_buffer(&mut self.log_lines);
-                updated = true;
-            }
-            updated
-        } else {
-            if !entries.is_empty() {
-                for entry in entries {
-                    self.pending_log_lines
-                        .push_back(CachedLogLine::from_entry(&entry));
-                }
-                trim_buffer(&mut self.pending_log_lines);
-            }
-            // Even though we received logs, we didn't update the visible lines.
-            false
+        let flush_pending =
+            self.logcat_errors.auto_update_feed && !self.logcat_errors.pending.is_empty();
+        let accept_errors_only = self.logcat_errors.accept_errors_only;
+        let accepted_entry = entries
+            .iter()
+            .any(|entry| !accept_errors_only || entry.is_error_level());
+        let updated_all = ingest_log_entries(&mut self.logcat, &entries);
+        let updated_errors = ingest_log_entries(&mut self.logcat_errors, &entries);
+        if flush_pending || accepted_entry {
+            self.insight.last_error_at = Some(Instant::now());
         }
-    }
-
-    fn drain_error_logcat(&mut self) -> bool {
-        let entries = take_log_entries(self.error_logcat_rx.as_ref());
-
-        if self.error_auto_update_feed {
-            let mut updated = false;
-            if !self.pending_error_lines.is_empty() {
-                self.error_lines.extend(self.pending_error_lines.drain(..));
-                trim_buffer(&mut self.error_lines);
-                self.insight.last_error_at = Some(Instant::now());
-                updated = true;
-            }
-            if !entries.is_empty() {
-                for entry in entries {
-                    if entry.is_error_level() {
-                        self.error_lines
-                            .push_back(CachedLogLine::from_entry(&entry));
-                        self.insight.last_error_at = Some(Instant::now());
-                        updated = true;
-                    }
-                }
-                if updated {
-                    trim_buffer(&mut self.error_lines);
-                }
-            }
-            updated
-        } else {
-            if !entries.is_empty() {
-                for entry in entries {
-                    if entry.is_error_level() {
-                        self.pending_error_lines
-                            .push_back(CachedLogLine::from_entry(&entry));
-                        self.insight.last_error_at = Some(Instant::now());
-                    }
-                }
-                trim_buffer(&mut self.pending_error_lines);
-            }
-            false
-        }
+        updated_all || updated_errors
     }
 
     fn drain_network(&mut self) -> bool {
@@ -869,9 +856,6 @@ impl App {
         if self.drain_logcat() {
             needs_repaint = true;
         }
-        if self.drain_error_logcat() {
-            needs_repaint = true;
-        }
         if self.drain_ram() {
             needs_repaint = true;
         }
@@ -930,6 +914,19 @@ fn remove_tag_filter(filters: &mut Vec<LogcatTagFilter>, index: usize) {
     if index < filters.len() {
         filters.remove(index);
     }
+}
+
+/// Appends `entries` to `pane`. Flushes pending first when auto-update is on.
+/// Returns true when the visible ring buffer changed.
+fn ingest_log_entries(pane: &mut LogcatPane, entries: &[LogEntry]) -> bool {
+    let mut updated = false;
+    if pane.auto_update_feed {
+        updated |= pane.flush_pending();
+    }
+    for entry in entries {
+        updated |= pane.append_entry(entry);
+    }
+    updated
 }
 
 fn take_log_entries(rx: Option<&Receiver<LogEntry>>) -> Vec<LogEntry> {

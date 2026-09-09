@@ -177,8 +177,8 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                 });
             }
             PanelId::LogcatAll => {
-                let mut show_timestamps = self.app.logcat_show_timestamps;
-                let mut auto_scroll = self.app.auto_update_feed;
+                let mut show_timestamps = self.app.logcat.show_timestamps;
+                let mut auto_scroll = self.app.logcat.auto_update_feed;
                 ui_elements::panel_with_footer(
                     ui,
                     pane.icon(),
@@ -188,8 +188,8 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                     &mut auto_scroll,
                     Some(&mut show_timestamps),
                 );
-                self.app.logcat_show_timestamps = show_timestamps;
-                self.app.auto_update_feed = auto_scroll;
+                self.app.logcat.show_timestamps = show_timestamps;
+                self.app.logcat.auto_update_feed = auto_scroll;
             }
             PanelId::Insight => {
                 let mut auto_scroll = self.app.insight_auto_update_feed;
@@ -205,8 +205,8 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                 self.app.insight_auto_update_feed = auto_scroll;
             }
             PanelId::LogcatErrors => {
-                let mut show_timestamps = self.app.error_show_timestamps;
-                let mut auto_scroll = self.app.error_auto_update_feed;
+                let mut show_timestamps = self.app.logcat_errors.show_timestamps;
+                let mut auto_scroll = self.app.logcat_errors.auto_update_feed;
                 ui_elements::panel_with_footer(
                     ui,
                     pane.icon(),
@@ -218,8 +218,8 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
                     &mut auto_scroll,
                     Some(&mut show_timestamps),
                 );
-                self.app.error_show_timestamps = show_timestamps;
-                self.app.error_auto_update_feed = auto_scroll;
+                self.app.logcat_errors.show_timestamps = show_timestamps;
+                self.app.logcat_errors.auto_update_feed = auto_scroll;
             }
             PanelId::SystemStats => {
                 ui_elements::panel(ui, pane.icon(), pane.title(), |ui| {

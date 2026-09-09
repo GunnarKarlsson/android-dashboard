@@ -109,10 +109,49 @@ pub fn section_gap(ui: &mut Ui) {
     ui.add_space(panel_padding(ui).bottom as f32);
 }
 
+const TAG_FILTER_PAD_X: i8 = 6;
+const TAG_FILTER_PAD_Y: i8 = 4;
+const TAG_FILTER_STROKE: f32 = 1.0;
+
 /// Filter row with themed spacing underneath.
 pub fn filter_row(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui)) {
-    ui.horizontal(add_contents);
+    let font_id = FontId::new(theme::FONT_SMALL, FontFamily::Proportional);
+    let row_height = ui.fonts(|f| f.row_height(&font_id))
+        + f32::from(TAG_FILTER_PAD_Y) * 2.0
+        + TAG_FILTER_STROKE * 2.0;
+    ui.allocate_ui_with_layout(
+        egui::vec2(ui.available_width(), row_height),
+        egui::Layout::left_to_right(egui::Align::Center),
+        add_contents,
+    );
     section_gap(ui);
+}
+
+/// Draws a tag-filter text field with the panel border stroke and small placeholder text.
+pub fn tag_filter_input(
+    ui: &mut Ui,
+    text: &mut String,
+    id_salt: impl std::hash::Hash,
+) -> egui::Response {
+    egui::Frame::default()
+        .stroke(egui::Stroke::new(TAG_FILTER_STROKE, colors::PANEL_BORDER))
+        .corner_radius(egui::CornerRadius::same(theme::PANEL_CORNER_RADIUS))
+        .inner_margin(egui::Margin::symmetric(TAG_FILTER_PAD_X, TAG_FILTER_PAD_Y))
+        .show(ui, |ui| {
+            ui.add(
+                egui::TextEdit::singleline(text)
+                    .hint_text(
+                        egui::RichText::new("Type tag and press enter")
+                            .color(colors::PLACEHOLDER_TEXT),
+                    )
+                    .font(FontId::new(theme::FONT_SMALL, FontFamily::Proportional))
+                    .frame(false)
+                    .margin(egui::Margin::ZERO)
+                    .desired_width(ui.available_width())
+                    .id_salt(id_salt),
+            )
+        })
+        .inner
 }
 
 /// Stable palette index for a tag name.
