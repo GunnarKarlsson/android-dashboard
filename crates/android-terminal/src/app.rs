@@ -11,6 +11,7 @@ use eframe::egui;
 use crate::logcat_pane::{add_tag_filter, remove_tag_filter};
 use crate::metrics::MetricStore;
 use crate::roster::{first_ready_serial, DeviceRoster, RosterEvent};
+use crate::session::DeviceSession;
 
 pub use crate::insight::{InsightController, InsightStatus};
 pub use crate::logcat_pane::{CachedLogLine, LogcatPane, LogcatTagFilter};
@@ -21,6 +22,8 @@ const REPAINT_INTERVAL: Duration = Duration::from_millis(200);
 
 pub struct App {
     pub roster: DeviceRoster,
+    #[allow(dead_code)]
+    session: DeviceSession,
     pub logcat_rx: Option<Receiver<LogEntry>>,
     pub logcat_stream: Option<LogcatStream>,
     pub network_rx: Option<Receiver<NetworkUpdate>>,
@@ -60,6 +63,7 @@ impl App {
                 devices_refreshed_at,
                 selected_serial: None,
             },
+            session: DeviceSession::default(),
             logcat_rx: None,
             logcat_stream: None,
             network_rx: None,
