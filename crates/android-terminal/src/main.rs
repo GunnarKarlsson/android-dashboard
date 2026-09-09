@@ -88,6 +88,7 @@ fn main() -> eframe::Result<()> {
             theme::configure(&cc.egui_ctx);
 
             let (devices, list_error) = if adb_error.is_none() {
+                // Listing is synchronous and can block a frame. Do not move it off the UI thread.
                 match Adb::list_devices() {
                     Ok(devices) => (devices, None),
                     Err(err) => (Vec::new(), Some(err.to_string())),

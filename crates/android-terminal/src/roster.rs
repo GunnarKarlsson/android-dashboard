@@ -19,6 +19,7 @@ pub enum RosterEvent {
 
 impl DeviceRoster {
     /// Relists connected devices and reports whether the current selection is still valid.
+    /// Listing is synchronous and can block a frame. Do not move it off the UI thread.
     pub fn refresh(&mut self) -> RosterEvent {
         self.list_error = None;
         self.devices_refreshed_at = Some(Instant::now());
