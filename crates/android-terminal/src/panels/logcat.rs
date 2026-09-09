@@ -9,21 +9,11 @@ use crate::ui_elements;
 /// Draws the all-logcat body and returns the number of rows in the log text area.
 pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usize {
     ui_elements::filter_row(ui, |ui| {
-        ui.label("Filter:");
-        ui.add(
-            egui::TextEdit::singleline(&mut app.logcat.filter)
-                .hint_text("Search logs…")
-                .desired_width(ui.available_width()),
-        )
-        .on_hover_text("Filter log lines by text");
-    });
-
-    ui_elements::filter_row(ui, |ui| {
-        ui.label("Tag:");
+        ui.label("Tag filter:");
         let response = ui
             .add(
                 egui::TextEdit::singleline(&mut app.logcat.tag_input)
-                    .hint_text("Add tag…")
+                    .hint_text("Add tag filter…")
                     .desired_width(ui.available_width())
                     .id_salt("logcat_tag_input"),
             )
@@ -59,10 +49,9 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> 
         return 0;
     }
 
-    let filter = app.logcat.filter.clone();
     let tag_filters = app.logcat.tag_filters.clone();
     let show_timestamps = app.logcat.show_timestamps;
-    let matching = filtered_line_indices(&app.logcat.lines, &filter, &tag_filters, show_timestamps);
+    let matching = filtered_line_indices(&app.logcat.lines, &tag_filters, show_timestamps);
 
     show_log_scroll(
         ui,
@@ -82,21 +71,11 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> 
 /// Draws the error-logcat body and returns the number of rows in the log text area.
 pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) -> usize {
     ui_elements::filter_row(ui, |ui| {
-        ui.label("Filter:");
-        ui.add(
-            egui::TextEdit::singleline(&mut app.logcat_errors.filter)
-                .hint_text("Search errors…")
-                .desired_width(ui.available_width()),
-        )
-        .on_hover_text("Filter error lines by text");
-    });
-
-    ui_elements::filter_row(ui, |ui| {
-        ui.label("Tag:");
+        ui.label("Tag filter:");
         let response = ui
             .add(
                 egui::TextEdit::singleline(&mut app.logcat_errors.tag_input)
-                    .hint_text("Add tag…")
+                    .hint_text("Add tag filter…")
                     .desired_width(ui.available_width())
                     .id_salt("error_logcat_tag_input"),
             )
@@ -132,15 +111,10 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, app: &mut App, auto_scroll: bool) 
         return 0;
     }
 
-    let filter = app.logcat_errors.filter.clone();
     let tag_filters = app.logcat_errors.tag_filters.clone();
     let show_timestamps = app.logcat_errors.show_timestamps;
-    let matching = filtered_line_indices(
-        &app.logcat_errors.lines,
-        &filter,
-        &tag_filters,
-        show_timestamps,
-    );
+    let matching =
+        filtered_line_indices(&app.logcat_errors.lines, &tag_filters, show_timestamps);
 
     show_log_scroll(
         ui,
@@ -175,23 +149,13 @@ struct LogScrollArgs<'a> {
 
 fn filtered_line_indices(
     lines: &VecDeque<CachedLogLine>,
-    text_filter: &str,
     tag_filters: &[LogcatTagFilter],
     show_timestamps: bool,
 ) -> Vec<usize> {
-    let text_filter = text_filter.trim();
-    let text_active = !text_filter.is_empty();
-    let text_lower = text_filter.to_lowercase();
-
     lines
         .iter()
         .enumerate()
-        .filter(|(_, line)| {
-            if text_active && !line.matches_filter(&text_lower) {
-                return false;
-            }
-            line.matches_tag_filters(tag_filters, show_timestamps)
-        })
+        .filter(|(_, line)| line.matches_tag_filters(tag_filters, show_timestamps))
         .map(|(index, _)| index)
         .collect()
 }

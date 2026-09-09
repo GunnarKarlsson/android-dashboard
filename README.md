@@ -57,8 +57,8 @@ The dashboard shows the following data in widgets:
 | Devices | Connected emulators and USB devices. |
 | RAM | Live memory usage. |
 | Storage | Live internal storage. |
-| Logcat | Streaming logcat for the selected device. Allows filtering by text and tag. |
-| Logcat Errors | Logcat but only errors and fatals. |
+| Logcat | Streaming logcat for the selected device. Filter by tag. |
+| Logcat Errors | Logcat but only errors and fatals. Filter by tag. |
 | Insight | An LLM's opinion on the error logs. See [AI insights](#ai-insights) for details. |
 | Storage Details | Directory totals and per-app storage. |
 | Network Activity | Per-interface RX/TX totals and current down/up rates. |

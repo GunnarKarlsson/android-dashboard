@@ -142,7 +142,6 @@ pub struct LogcatTagFilter {
 pub struct LogcatPane {
     pub lines: VecDeque<CachedLogLine>,
     pub pending: VecDeque<CachedLogLine>,
-    pub filter: String,
     pub tag_input: String,
     pub tag_filters: Vec<LogcatTagFilter>,
     pub auto_update_feed: bool,
@@ -156,7 +155,6 @@ impl Default for LogcatPane {
         Self {
             lines: VecDeque::new(),
             pending: VecDeque::new(),
-            filter: String::new(),
             tag_input: String::new(),
             tag_filters: Vec::new(),
             auto_update_feed: true,
@@ -168,12 +166,11 @@ impl Default for LogcatPane {
 }
 
 impl LogcatPane {
-    /// Clears lines, pending, filters, tags, and error, and turns auto-update on.
+    /// Clears lines, pending, tags, and error, and turns auto-update on.
     /// Leaves `accept_errors_only` and `show_timestamps` unchanged.
     fn reset_view(&mut self) {
         self.lines.clear();
         self.pending.clear();
-        self.filter.clear();
         self.tag_input.clear();
         self.tag_filters.clear();
         self.auto_update_feed = true;
@@ -260,10 +257,6 @@ impl CachedLogLine {
         } else {
             &self.compact
         }
-    }
-
-    pub fn matches_filter(&self, filter_lower: &str) -> bool {
-        self.full.to_lowercase().contains(filter_lower)
     }
 
     pub fn matches_tag_filters(
