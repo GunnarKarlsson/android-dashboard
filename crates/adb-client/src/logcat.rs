@@ -100,7 +100,8 @@ pub struct LogcatStream {
 }
 
 impl LogcatStream {
-    /// Spawns `adb -s <serial> logcat -v threadtime` and returns a receiver of parsed entries.
+    /// Spawns `adb -s <serial> logcat -v threadtime` with no filter args and returns a
+    /// receiver of parsed entries.
     pub fn spawn(serial: &str) -> Result<(Receiver<LogEntry>, Self), AdbError> {
         Self::spawn_with_filters(serial, Vec::new())
     }
