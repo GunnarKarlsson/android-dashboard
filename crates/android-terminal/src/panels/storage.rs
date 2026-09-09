@@ -1,7 +1,7 @@
 use adb_client::{StorageCategory, StorageOverview};
 use eframe::egui;
 
-use crate::app::AppStorageState;
+use crate::app::PackageStorageState;
 use crate::format::{format_bytes, format_bytes_mb, format_gb_from_bytes, truncate_package_name};
 use crate::metrics::MetricStore;
 use crate::theme;
@@ -79,7 +79,7 @@ fn show_storage_categories(ui: &mut egui::Ui, categories: &[StorageCategory]) {
         });
 }
 
-fn show_app_storage(ui: &mut egui::Ui, storage: &AppStorageState) {
+fn show_app_storage(ui: &mut egui::Ui, storage: &PackageStorageState) {
     ui.horizontal(|ui| {
         ui.label("Apps");
         if storage.scanning {

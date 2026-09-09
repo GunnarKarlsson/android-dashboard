@@ -3,14 +3,14 @@ use std::collections::HashMap;
 use adb_client::{MemoryStats, NetworkStats, ProtocolStats, StorageBreakdown, StorageOverview};
 
 #[derive(Default)]
-pub struct AppStorageState {
+pub struct PackageStorageState {
     pub packages: Vec<String>,
     pub sizes: HashMap<String, u64>,
     pub scanning: bool,
     pub error: Option<String>,
 }
 
-impl AppStorageState {
+impl PackageStorageState {
     pub fn set_packages(&mut self, packages: Vec<String>) {
         self.packages = packages;
         self.sizes.clear();
@@ -55,7 +55,7 @@ pub struct MetricStore {
     pub network_error: Option<String>,
     pub protocol_stats: Option<ProtocolStats>,
     pub protocol_error: Option<String>,
-    pub app_storage: AppStorageState,
+    pub app_storage: PackageStorageState,
 }
 
 impl Default for MetricStore {
@@ -71,7 +71,7 @@ impl Default for MetricStore {
             network_error: None,
             protocol_stats: None,
             protocol_error: None,
-            app_storage: AppStorageState::default(),
+            app_storage: PackageStorageState::default(),
         }
     }
 }

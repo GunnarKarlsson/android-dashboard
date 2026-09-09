@@ -9,7 +9,7 @@ use crate::session::{DeviceSession, SessionStartErrors};
 
 pub use crate::insight::{InsightController, InsightStatus};
 pub use crate::logcat_pane::{CachedLogLine, LogcatPane, LogcatTagFilter};
-pub use crate::metrics::AppStorageState;
+pub use crate::metrics::PackageStorageState;
 
 const REPAINT_INTERVAL: Duration = Duration::from_millis(200);
 
