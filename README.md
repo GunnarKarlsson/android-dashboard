@@ -137,24 +137,25 @@ Expected response format from API:
 
 ## Commands Used by App
 
-Every subprocess the app starts is `adb` on `PATH`. Device-side work is always `adb -s <serial> …`.
+Every subprocess the app starts runs `adb` on `PATH`. Device-specific commands are always `adb -s <serial> …`.
 
 ### Host / session
 
 | Command | When |
 | --- | --- |
-| `adb version` | Startup (`Adb::check_available`) |
-| `adb devices -l` | Startup, then Refresh in the devices panel |
-| `adb -s <serial> shell getprop ro.product.model` | During device listing, only if `devices -l` had no `model:` field |
+| `adb version` | On startup |
+| `adb devices -l` | On startup, then On refresh in the devices panel |
+| `adb -s <serial> shell getprop ro.product.model` | While app is building device list, only if `devices -l` had no `model:` field |
 
 ### While a device is selected
 
 Selecting a device starts two logcat processes plus several pollers.
 
-Streaming (stay running until the device is deselected):
+Streaming (stays running until the device is deselected):
 
 - `adb -s <serial> logcat -v threadtime` — full logcat
 - `adb -s <serial> logcat -v threadtime *:E` — Error/Fatal only
+
 
 | Command | Interval | Used for |
 | --- | --- | --- |
@@ -168,7 +169,7 @@ Streaming (stay running until the device is deselected):
 | `adb -s <serial> shell pm list packages` | On select, then 60s after each scan completes | App list for storage sizes |
 | `adb -s <serial> shell sh -c '<batch>'` | Batches of 20 packages during that scan | Per-app storage stats |
 
-The `<batch>` argument to `sh -c` is the below per package, joined with `; `
+The `<batch>` argument to `sh -c` is the below command per package, joined with `; `
 
 ```sh
 pkg='com.example.app'; printf '@PKG@%s\n' "$pkg"; cmd package get-package-storage-stats "$pkg" 2>/dev/null || true
