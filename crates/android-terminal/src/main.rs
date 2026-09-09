@@ -2,6 +2,7 @@ mod app;
 mod format;
 mod insight;
 mod layout;
+mod logcat_pane;
 #[cfg(target_os = "macos")]
 mod macos;
 mod metrics;
