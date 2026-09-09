@@ -230,6 +230,14 @@ impl LogcatPane {
         trim_buffer(&mut self.lines);
         true
     }
+
+    /// Returns log lines from the visible ring buffer followed by the pending ring buffer.
+    fn insight_lines(&self) -> impl Iterator<Item = InsightLine> + '_ {
+        self.lines
+            .iter()
+            .chain(self.pending.iter())
+            .map(CachedLogLine::to_insight_line)
+    }
 }
 
 #[derive(Clone)]
@@ -251,6 +259,16 @@ impl CachedLogLine {
             tag: entry.tag.clone(),
             message: entry.message.clone(),
             received_at: Instant::now(),
+        }
+    }
+
+    /// Builds an `InsightLine` from this cached log line.
+    fn to_insight_line(&self) -> InsightLine {
+        InsightLine {
+            received_at: self.received_at,
+            level: self.level,
+            tag: self.tag.clone(),
+            message: self.message.clone(),
         }
     }
 
@@ -550,13 +568,13 @@ impl App {
             .map(|device| device.model.as_str())
             .unwrap_or("unknown");
         let now = Instant::now();
-        let lines = self.error_lines.iter().map(|line| InsightLine {
-            received_at: line.received_at,
-            level: line.level,
-            tag: line.tag.clone(),
-            message: line.message.clone(),
-        });
-        let snapshot = build_snapshot(lines, LevelMask::Error, model, &serial, now);
+        let snapshot = build_snapshot(
+            self.logcat_errors.insight_lines(),
+            LevelMask::Error,
+            model,
+            &serial,
+            now,
+        );
         if snapshot.clusters.is_empty() {
             return;
         }
@@ -592,13 +610,13 @@ impl App {
             .map(|device| device.model.as_str())
             .unwrap_or("unknown");
         let now = Instant::now();
-        let lines = self.error_lines.iter().map(|line| InsightLine {
-            received_at: line.received_at,
-            level: line.level,
-            tag: line.tag.clone(),
-            message: line.message.clone(),
-        });
-        let snapshot = build_snapshot(lines, LevelMask::Error, model, &serial, now);
+        let snapshot = build_snapshot(
+            self.logcat_errors.insight_lines(),
+            LevelMask::Error,
+            model,
+            &serial,
+            now,
+        );
         if snapshot.clusters.is_empty() {
             return;
         }
@@ -790,7 +808,9 @@ impl App {
                 self.insight.last_error_at = Some(Instant::now());
                 updated = true;
             }
-            self.logcat_errors.flush_pending();
+            if self.logcat_errors.flush_pending() {
+                self.insight.last_error_at = Some(Instant::now());
+            }
             if !entries.is_empty() {
                 for entry in entries {
                     if entry.is_error_level() {
