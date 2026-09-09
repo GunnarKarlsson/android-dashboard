@@ -11,6 +11,7 @@ use ai_insight::{build_snapshot, spawn_insight, InsightLine, InsightUpdate, Leve
 use crossbeam_channel::Receiver;
 use eframe::egui;
 
+use crate::roster::DeviceRoster;
 use crate::ui_elements;
 
 pub const MAX_LOG_LINES: usize = 10_000;
@@ -26,6 +27,8 @@ pub struct App {
     pub list_error: Option<String>,
     pub devices_refreshed_at: Option<Instant>,
     pub selected_serial: Option<String>,
+    #[allow(dead_code)]
+    pub roster: DeviceRoster,
     pub logcat_rx: Option<Receiver<LogEntry>>,
     pub logcat_stream: Option<LogcatStream>,
     pub network_rx: Option<Receiver<NetworkUpdate>>,
@@ -287,11 +290,18 @@ impl App {
             None
         };
         let mut app = App {
-            adb_error,
-            devices,
-            list_error,
+            adb_error: adb_error.clone(),
+            devices: devices.clone(),
+            list_error: list_error.clone(),
             devices_refreshed_at,
             selected_serial: None,
+            roster: DeviceRoster {
+                adb_error,
+                devices,
+                list_error,
+                devices_refreshed_at,
+                selected_serial: None,
+            },
             logcat_rx: None,
             logcat_stream: None,
             network_rx: None,
