@@ -29,6 +29,18 @@ pub enum PanelId {
 }
 
 impl PanelId {
+    pub(crate) const ALL: [Self; 9] = [
+        Self::Devices,
+        Self::Ram,
+        Self::Storage,
+        Self::LogcatAll,
+        Self::LogcatErrors,
+        Self::Insight,
+        Self::SystemStats,
+        Self::Network,
+        Self::Protocols,
+    ];
+
     fn title(self) -> &'static str {
         match self {
             PanelId::Devices => "Devices",
@@ -303,7 +315,8 @@ mod tests {
     fn default_tree_json_round_trips() {
         let original = create_default_tree();
         let json = serde_json::to_string(&original).expect("serialize default tree");
-        let restored: Tree<PanelId> = serde_json::from_str(&json).expect("deserialize default tree");
+        let restored: Tree<PanelId> =
+            serde_json::from_str(&json).expect("deserialize default tree");
         assert_eq!(original, restored);
     }
 
@@ -314,7 +327,10 @@ mod tests {
             json.contains("\"Pane\": \"Devices\"") || json.contains("\"Pane\":\"Devices\""),
             "missing Devices pane: {json}"
         );
-        assert!(json.contains("\"Linear\""), "missing Linear container: {json}");
+        assert!(
+            json.contains("\"Linear\""),
+            "missing Linear container: {json}"
+        );
         assert!(json.contains("\"shares\""), "missing shares: {json}");
     }
 }
