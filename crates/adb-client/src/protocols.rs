@@ -446,6 +446,12 @@ UID tag stats:
     }
 
     #[test]
+    fn parse_package_uids_empty_or_garbage() {
+        assert!(parse_package_uids("").is_empty());
+        assert!(parse_package_uids("not a package list").is_empty());
+    }
+
+    #[test]
     fn parse_uid_stats_traffic() {
         let traffic = parse_uid_traffic(UID_STATS_SAMPLE);
 
@@ -509,5 +515,15 @@ UID tag stats:
             .map(|s| s.foreground_bytes + s.background_bytes)
             .sum();
         assert!(total < 1_000_000);
+    }
+
+    #[test]
+    fn parse_uid_traffic_empty_or_garbage() {
+        assert!(parse_uid_traffic("").is_empty());
+        assert!(parse_uid_traffic("garbage with no UID stats:").is_empty());
+        assert!(parse_uid_traffic(
+            "UID stats:\n  ident=not-valid\n    st=1 rb=nope tb=nope\n"
+        )
+        .is_empty());
     }
 }

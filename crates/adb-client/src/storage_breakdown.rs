@@ -297,6 +297,19 @@ mod tests {
     }
 
     #[test]
+    fn parse_user_storage_df_empty_or_garbage() {
+        assert!(parse_user_storage_df("").is_err());
+        assert!(parse_user_storage_df(
+            "Filesystem     1K-blocks    Used Available Use% Mounted on\n"
+        )
+        .is_err());
+        assert!(parse_user_storage_df(
+            "Filesystem     1K-blocks    Used Available Use% Mounted on\n/dev/fuse  abc  def  ghi  90% /storage/emulated\n"
+        )
+        .is_err());
+    }
+
+    #[test]
     fn parse_du_bytes_sample() {
         let sample = r#"7222	/storage/emulated/0/Download
 83987	/storage/emulated/0/Pictures
@@ -305,6 +318,13 @@ mod tests {
         let sizes = parse_du_bytes(sample);
         assert_eq!(sizes.get("/storage/emulated/0/Download"), Some(&7222));
         assert_eq!(sizes.get("/storage/emulated/0/Pictures"), Some(&83987));
+    }
+
+    #[test]
+    fn parse_du_bytes_empty_or_garbage() {
+        assert!(parse_du_bytes("").is_empty());
+        assert!(parse_du_bytes("garbage").is_empty());
+        assert!(parse_du_bytes("notanumber\t/path").is_empty());
     }
 
     #[test]
