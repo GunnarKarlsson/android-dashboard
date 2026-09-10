@@ -44,7 +44,14 @@ impl eframe::App for TerminalApp {
         self.inner.tick(ctx);
 
         #[cfg(target_os = "macos")]
-        ui_elements::title_bar(ctx, frame);
+        if ui_elements::title_bar(ctx, frame) {
+            self.layout_tree = layout::create_default_tree();
+            if layout_store::save(&self.layout_tree) {
+                self.layout_saver.clear_dirty();
+            } else {
+                self.layout_saver.mark_edit();
+            }
+        }
 
         let mut layout_dirty = false;
         eframe::egui::CentralPanel::default()

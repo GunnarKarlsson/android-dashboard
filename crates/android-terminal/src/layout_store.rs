@@ -168,6 +168,11 @@ impl LayoutSaver {
         save(tree);
         self.dirty = false;
     }
+
+    /// Drops a pending write without saving.
+    pub(crate) fn clear_dirty(&mut self) {
+        self.dirty = false;
+    }
 }
 
 fn tmp_path(path: &Path) -> PathBuf {

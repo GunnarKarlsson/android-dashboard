@@ -49,8 +49,9 @@ pub fn canvas_margin_frame() -> egui::Frame {
 }
 
 /// macOS title strip: same fill as the panel canvas; traffic lights stay native.
+/// Returns true when the user chose Reset layout.
 #[cfg(target_os = "macos")]
-pub fn title_bar(ctx: &Context, frame: &eframe::Frame) {
+pub fn title_bar(ctx: &Context, frame: &eframe::Frame) -> bool {
     let over_traffic_lights = ctx.input(|i| {
         i.pointer.latest_pos().is_some_and(|pos| {
             pos.x < theme::TRAFFIC_LIGHTS_WIDTH && pos.y >= 0.0 && pos.y < theme::TITLE_BAR_HEIGHT
@@ -58,25 +59,16 @@ pub fn title_bar(ctx: &Context, frame: &eframe::Frame) {
     });
     crate::macos::sync_traffic_lights(frame, theme::TITLE_BAR_HEIGHT, over_traffic_lights);
 
+    let mut reset_layout = false;
+    const SETTINGS_ICON: f32 = 16.0;
+    const SETTINGS_STRIP: f32 = 40.0;
+
     egui::TopBottomPanel::top("os_title_bar")
         .exact_height(theme::TITLE_BAR_HEIGHT)
         .frame(egui::Frame::NONE.fill(colors::BG_EXTREME))
         .show_separator_line(false)
         .show(ctx, |ui| {
             let rect = ui.max_rect();
-            let response = ui.interact(
-                rect,
-                ui.id().with("title_bar_drag"),
-                egui::Sense::click_and_drag(),
-            );
-            if response.drag_started_by(egui::PointerButton::Primary) {
-                ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
-            }
-            if response.double_clicked() {
-                let maximized = ui.input(|i| i.viewport().maximized.unwrap_or(false));
-                ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!maximized));
-            }
-
             ui.painter().text(
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
@@ -89,7 +81,54 @@ pub fn title_bar(ctx: &Context, frame: &eframe::Frame) {
                 rect.bottom() - 0.5,
                 egui::Stroke::new(1.0, colors::PANEL_SEPARATOR),
             );
+
+            let settings_rect = egui::Rect::from_min_max(
+                egui::pos2(rect.right() - SETTINGS_STRIP, rect.top()),
+                rect.max,
+            );
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(settings_rect), |ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.add_space(theme::PANEL_CANVAS_MARGIN as f32);
+                    let image = egui::Image::new(theme::icons::cog())
+                        .fit_to_exact_size(egui::vec2(SETTINGS_ICON, SETTINGS_ICON))
+                        .show_loading_spinner(false)
+                        .tint(colors::HEADER_ICON);
+                    let menu = egui::menu::menu_custom_button(
+                        ui,
+                        egui::Button::image(image).frame(false),
+                        |ui| {
+                            let clicked = ui.button("Reset layout").clicked();
+                            if clicked {
+                                ui.close_menu();
+                            }
+                            clicked
+                        },
+                    );
+                    menu.response.on_hover_text("Layout");
+                    if menu.inner == Some(true) {
+                        reset_layout = true;
+                    }
+                });
+            });
+
+            let drag_rect = egui::Rect::from_min_max(
+                egui::pos2(theme::TRAFFIC_LIGHTS_WIDTH, rect.top()),
+                egui::pos2(settings_rect.left(), rect.bottom()),
+            );
+            let response = ui.interact(
+                drag_rect,
+                ui.id().with("title_bar_drag"),
+                egui::Sense::click_and_drag(),
+            );
+            if response.drag_started_by(egui::PointerButton::Primary) {
+                ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
+            }
+            if response.double_clicked() {
+                let maximized = ui.input(|i| i.viewport().maximized.unwrap_or(false));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!maximized));
+            }
         });
+    reset_layout
 }
 
 fn panel_frame(ui: &Ui) -> egui::Frame {
