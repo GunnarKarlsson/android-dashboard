@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use egui_tiles::Tree;
 use serde::{Deserialize, Serialize};
@@ -9,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::layout::{create_default_tree, PanelId};
 
 const LAYOUT_VERSION: u32 = 1;
+const SAVE_DEBOUNCE: Duration = Duration::from_millis(500);
 
 #[derive(Serialize, Deserialize)]
 struct LayoutFile {
@@ -17,7 +19,6 @@ struct LayoutFile {
 }
 
 /// Pretty-prints the tile tree as versioned JSON.
-#[allow(dead_code)]
 pub(crate) fn encode(tree: &Tree<PanelId>) -> Result<String, serde_json::Error> {
     serde_json::to_string_pretty(&LayoutFile {
         version: LAYOUT_VERSION,
@@ -81,7 +82,6 @@ pub(crate) fn load_from_path(path: &Path) -> Tree<PanelId> {
 }
 
 /// Writes versioned layout JSON to `path` via a sibling `.tmp` file.
-#[allow(dead_code)]
 pub(crate) fn save_to_path(path: &Path, tree: &Tree<PanelId>) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -104,11 +104,11 @@ pub(crate) fn load_or_default() -> Tree<PanelId> {
 }
 
 /// Writes the in-memory tree to the layout JSON path.
-#[allow(dead_code)]
-pub(crate) fn save(tree: &Tree<PanelId>) {
+/// Returns true when the file was written.
+pub(crate) fn save(tree: &Tree<PanelId>) -> bool {
     let Some(path) = layout_path() else {
         tracing::warn!("no config directory; layout not saved");
-        return;
+        return false;
     };
     if let Err(err) = save_to_path(&path, tree) {
         tracing::warn!(
@@ -116,6 +116,57 @@ pub(crate) fn save(tree: &Tree<PanelId>) {
             path = %path.display(),
             "failed to save layout"
         );
+        return false;
+    }
+    true
+}
+
+/// Debounces layout writes until edits have been idle.
+pub(crate) struct LayoutSaver {
+    dirty: bool,
+    last_edit: Instant,
+}
+
+impl Default for LayoutSaver {
+    fn default() -> Self {
+        Self {
+            dirty: false,
+            last_edit: Instant::now(),
+        }
+    }
+}
+
+impl LayoutSaver {
+    /// Records that the tile tree changed. Restarts the save delay.
+    pub(crate) fn mark_edit(&mut self) {
+        self.dirty = true;
+        self.last_edit = Instant::now();
+    }
+
+    /// Writes the tree once the save delay has elapsed since the last edit.
+    pub(crate) fn tick(&mut self, ctx: &egui::Context, tree: &Tree<PanelId>) {
+        if !self.dirty {
+            return;
+        }
+        let wait = SAVE_DEBOUNCE.saturating_sub(self.last_edit.elapsed());
+        if wait.is_zero() {
+            if save(tree) {
+                self.dirty = false;
+            } else {
+                ctx.request_repaint_after(SAVE_DEBOUNCE);
+            }
+        } else {
+            ctx.request_repaint_after(wait);
+        }
+    }
+
+    /// Writes a pending layout immediately. Clears dirty even if the write fails.
+    pub(crate) fn flush(&mut self, tree: &Tree<PanelId>) {
+        if !self.dirty {
+            return;
+        }
+        save(tree);
+        self.dirty = false;
     }
 }
 

@@ -148,18 +148,23 @@ fn set_linear_shares(
     }
 }
 
-pub fn show(ui: &mut egui::Ui, tree: &mut Tree<PanelId>, app: &mut App) {
-    let mut behavior = AppTilesBehavior { app };
+pub fn show(ui: &mut egui::Ui, tree: &mut Tree<PanelId>, app: &mut App, layout_dirty: &mut bool) {
+    let mut behavior = AppTilesBehavior { app, layout_dirty };
     tree.ui(&mut behavior, ui);
 }
 
 struct AppTilesBehavior<'a> {
     app: &'a mut App,
+    layout_dirty: &'a mut bool,
 }
 
 impl Behavior<PanelId> for AppTilesBehavior<'_> {
     fn tab_title_for_pane(&mut self, pane: &PanelId) -> egui::WidgetText {
         pane.title().into()
+    }
+
+    fn on_edit(&mut self, _action: egui_tiles::EditAction) {
+        *self.layout_dirty = true;
     }
 
     fn gap_width(&self, _style: &egui::Style) -> f32 {
