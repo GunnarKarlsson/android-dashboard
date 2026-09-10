@@ -255,10 +255,18 @@ mod tests {
     #[test]
     fn samples_are_redacted() {
         let now = Instant::now();
-        let lines = [line(now, 3, 'E', "App", "token Bearer secret.jwt")];
+        let lines = [line(
+            now,
+            3,
+            'E',
+            "AndroidRuntime",
+            "token Bearer secret.jwt password=s3cret",
+        )];
         let snap = build_snapshot(lines, LevelMask::Error, "Pixel 8", "serial-1", now);
         assert_eq!(snap.clusters.len(), 1);
+        assert_eq!(snap.clusters[0].tag, "AndroidRuntime");
         assert!(!snap.clusters[0].samples[0].contains("secret.jwt"));
+        assert!(!snap.clusters[0].samples[0].contains("s3cret"));
     }
 
     #[test]
