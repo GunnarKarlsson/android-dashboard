@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 
 use adb_client::DeviceInfo;
+use ai_insight::InsightConfig;
 use eframe::egui;
 
 use crate::metrics::MetricStore;
@@ -27,6 +28,7 @@ impl App {
         adb_error: Option<String>,
         devices: Vec<DeviceInfo>,
         list_error: Option<String>,
+        insight: InsightConfig,
     ) -> Self {
         let devices_refreshed_at = if adb_error.is_none() {
             Some(Instant::now())
@@ -48,7 +50,7 @@ impl App {
                 ..LogcatPane::default()
             },
             metrics: MetricStore::default(),
-            insight: InsightController::default(),
+            insight: InsightController::new(insight),
         };
         if let Some(serial) = first_ready_serial(&app.roster.devices) {
             app.select_device(serial);

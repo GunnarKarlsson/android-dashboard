@@ -32,7 +32,12 @@ impl TerminalApp {
         list_error: Option<String>,
     ) -> Self {
         Self {
-            inner: App::new(adb_error, devices, list_error),
+            inner: App::new(
+                adb_error,
+                devices,
+                list_error,
+                ai_insight::InsightConfig::from_env(),
+            ),
             layout_tree: layout_store::load_or_default(),
             layout_saver: layout_store::LayoutSaver::default(),
         }

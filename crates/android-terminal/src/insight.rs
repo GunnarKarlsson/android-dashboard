@@ -14,23 +14,33 @@ const INSIGHT_COOLDOWN: Duration = Duration::from_secs(30);
 pub struct InsightController {
     pub auto_update_feed: bool,
     pub state: InsightState,
+    config: InsightConfig,
     rx: Option<Receiver<InsightUpdate>>,
     serial: Option<String>,
 }
 
 impl Default for InsightController {
     fn default() -> Self {
-        Self {
-            auto_update_feed: true,
-            state: InsightState::default(),
-            rx: None,
-            serial: None,
-        }
+        Self::new(InsightConfig {
+            api_key: String::new(),
+            base_url: String::new(),
+            model: String::new(),
+        })
     }
 }
 
 impl InsightController {
-    /// Clears request state and the in-flight channel. Leaves `auto_update_feed` unchanged.
+    pub(crate) fn new(config: InsightConfig) -> Self {
+        Self {
+            auto_update_feed: true,
+            state: InsightState::default(),
+            config,
+            rx: None,
+            serial: None,
+        }
+    }
+
+    /// Clears request state and the in-flight channel. Leaves `auto_update_feed` and `config` unchanged.
     pub(crate) fn reset(&mut self) {
         self.state = InsightState::default();
         self.rx = None;
@@ -42,7 +52,7 @@ impl InsightController {
         self.state.last_error_at = Some(Instant::now());
     }
 
-    /// Builds a snapshot. If the provider is configured and settle/cooldown/digest say send, queues the worker.
+    /// Builds a snapshot when settle/cooldown/digest can send, then queues the worker.
     /// Returns true if a request started.
     pub(crate) fn maybe_request(
         &mut self,
@@ -53,18 +63,53 @@ impl InsightController {
         if self.state.status == InsightStatus::RequestSent {
             return false;
         }
-        if !InsightConfig::from_env().is_configured() {
+        if !self.config.is_configured() {
             return false;
         }
 
         let now = Instant::now();
+        if !self.should_consider(now) {
+            return false;
+        }
+
         let snapshot = build_snapshot(lines, LevelMask::Error, model, serial, now);
+        self.state.last_built_error_at = self.state.last_error_at;
         if !self.should_send(&snapshot, now) {
             return false;
         }
 
         self.queue(serial, snapshot, now);
         true
+    }
+
+    /// Returns whether clustering is worth doing at `now`.
+    fn should_consider(&self, now: Instant) -> bool {
+        match self.state.last_sent_key.as_deref() {
+            None => self.settled(now),
+            Some(_) => {
+                if !self.cooled(now) {
+                    self.ring_changed()
+                } else {
+                    self.ring_changed() || self.state.status == InsightStatus::RequestFailed
+                }
+            }
+        }
+    }
+
+    fn settled(&self, now: Instant) -> bool {
+        self.state
+            .last_error_at
+            .is_some_and(|at| now.saturating_duration_since(at) >= INSIGHT_SETTLE)
+    }
+
+    fn cooled(&self, now: Instant) -> bool {
+        self.state
+            .last_analyze
+            .is_none_or(|at| now.saturating_duration_since(at) >= INSIGHT_COOLDOWN)
+    }
+
+    fn ring_changed(&self) -> bool {
+        self.state.last_error_at != self.state.last_built_error_at
     }
 
     /// Returns whether settle, cooldown, digest change, and request status allow sending
@@ -79,15 +124,9 @@ impl InsightController {
         let key = snapshot.digest_key();
 
         match self.state.last_sent_key.as_deref() {
-            None => self
-                .state
-                .last_error_at
-                .is_some_and(|at| now.saturating_duration_since(at) >= INSIGHT_SETTLE),
+            None => self.settled(now),
             Some(prev) => {
-                let cooled = self
-                    .state
-                    .last_analyze
-                    .is_none_or(|at| now.saturating_duration_since(at) >= INSIGHT_COOLDOWN);
+                let cooled = self.cooled(now);
                 let key_changed = key != prev;
                 let high = snapshot.has_new_high_severity(prev);
                 if key_changed {
@@ -164,6 +203,7 @@ impl InsightController {
         self.state.last_sent_key = Some(key);
         self.serial = Some(serial.to_string());
         self.rx = Some(spawn_insight(
+            self.config.clone(),
             snapshot,
             self.state.generation,
             serial.to_string(),
@@ -184,6 +224,7 @@ pub struct InsightState {
     pub replies: VecDeque<String>,
     pub(crate) last_analyze: Option<Instant>,
     pub(crate) last_error_at: Option<Instant>,
+    pub(crate) last_built_error_at: Option<Instant>,
     pub(crate) last_sent_key: Option<String>,
     pub(crate) ever_succeeded: bool,
     pub(crate) generation: u64,
@@ -196,6 +237,7 @@ impl Default for InsightState {
             replies: VecDeque::new(),
             last_analyze: None,
             last_error_at: None,
+            last_built_error_at: None,
             last_sent_key: None,
             ever_succeeded: false,
             generation: 0,
@@ -256,5 +298,69 @@ mod tests {
         controller.state.status = InsightStatus::RequestSent;
         controller.state.last_error_at = Some(now - INSIGHT_SETTLE);
         assert!(!controller.should_send(&error_snapshot(now), now));
+    }
+
+    #[test]
+    fn consider_first_send_before_settle() {
+        let now = Instant::now();
+        let mut controller = InsightController::default();
+        controller.state.last_error_at = Some(now);
+        assert!(!controller.should_consider(now));
+    }
+
+    #[test]
+    fn consider_first_send_after_settle() {
+        let now = Instant::now();
+        let mut controller = InsightController::default();
+        controller.state.last_error_at = Some(now - INSIGHT_SETTLE);
+        assert!(controller.should_consider(now));
+    }
+
+    #[test]
+    fn consider_cooldown_ring_unchanged() {
+        let now = Instant::now();
+        let at = now - Duration::from_secs(1);
+        let mut controller = InsightController::default();
+        controller.state.last_sent_key = Some("key".into());
+        controller.state.last_analyze = Some(now);
+        controller.state.last_error_at = Some(at);
+        controller.state.last_built_error_at = Some(at);
+        assert!(!controller.should_consider(now));
+    }
+
+    #[test]
+    fn consider_cooldown_new_error() {
+        let now = Instant::now();
+        let mut controller = InsightController::default();
+        controller.state.last_sent_key = Some("key".into());
+        controller.state.last_analyze = Some(now);
+        controller.state.last_built_error_at = Some(now - Duration::from_secs(2));
+        controller.state.last_error_at = Some(now);
+        assert!(controller.should_consider(now));
+    }
+
+    #[test]
+    fn consider_cooled_idle_ring_unchanged() {
+        let now = Instant::now();
+        let at = now - INSIGHT_COOLDOWN;
+        let mut controller = InsightController::default();
+        controller.state.last_sent_key = Some("key".into());
+        controller.state.last_analyze = Some(at);
+        controller.state.last_error_at = Some(at);
+        controller.state.last_built_error_at = Some(at);
+        assert!(!controller.should_consider(now));
+    }
+
+    #[test]
+    fn consider_cooled_failed_ring_unchanged() {
+        let now = Instant::now();
+        let at = now - INSIGHT_COOLDOWN;
+        let mut controller = InsightController::default();
+        controller.state.status = InsightStatus::RequestFailed;
+        controller.state.last_sent_key = Some("key".into());
+        controller.state.last_analyze = Some(at);
+        controller.state.last_error_at = Some(at);
+        controller.state.last_built_error_at = Some(at);
+        assert!(controller.should_consider(now));
     }
 }
