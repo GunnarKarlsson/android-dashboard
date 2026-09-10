@@ -27,9 +27,7 @@ impl InsightConfig {
 
     /// Returns true when API key, base URL, and model are all non-empty after trim.
     pub fn is_configured(&self) -> bool {
-        self.has_api_key()
-            && !self.base_url.trim().is_empty()
-            && !self.model.trim().is_empty()
+        self.has_api_key() && !self.base_url.trim().is_empty() && !self.model.trim().is_empty()
     }
 
     /// Builds `{base_url}/chat/completions` with no trailing slash on the base.

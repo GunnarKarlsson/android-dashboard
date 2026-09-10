@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use egui_tiles::Tree;
 use serde::{Deserialize, Serialize};
 
-use crate::layout::{create_default_tree, PanelId};
+use crate::layout::{PanelId, create_default_tree};
 
 const LAYOUT_VERSION: u32 = 1;
 const SAVE_DEBOUNCE: Duration = Duration::from_millis(500);

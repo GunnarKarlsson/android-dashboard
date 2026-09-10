@@ -25,7 +25,7 @@ pub use protocols::{AppTraffic, ProtocolPoller, ProtocolStats, ProtocolUpdate};
 pub use ram::{RamPoller, RamUpdate};
 pub use stats::MemoryStats;
 pub use storage_breakdown::{
-    fetch_storage_overview, StorageBreakdown, StorageBreakdownPoller, StorageBreakdownUpdate,
-    StorageCategory, StorageOverview,
+    StorageBreakdown, StorageBreakdownPoller, StorageBreakdownUpdate, StorageCategory,
+    StorageOverview, fetch_storage_overview,
 };
 pub use storage_gauge::{StorageGaugePoller, StorageGaugeUpdate};

@@ -2,8 +2,8 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
 use ai_insight::{
-    build_snapshot, spawn_insight, InsightConfig, InsightLine, InsightSnapshot, InsightUpdate,
-    LevelMask,
+    InsightConfig, InsightLine, InsightSnapshot, InsightUpdate, LevelMask, build_snapshot,
+    spawn_insight,
 };
 use crossbeam_channel::Receiver;
 

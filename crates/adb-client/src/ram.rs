@@ -5,7 +5,7 @@ use crossbeam_channel::{Receiver, Sender};
 
 use crate::background::{signal_stop_and_detach, sleep_until_stop};
 use crate::error::AdbError;
-use crate::stats::{fetch_memory_stats, MemoryStats};
+use crate::stats::{MemoryStats, fetch_memory_stats};
 
 const DEFAULT_POLL_INTERVAL: Duration = Duration::from_secs(2);
 const MAX_BACKOFF_INTERVAL: Duration = Duration::from_secs(5);
