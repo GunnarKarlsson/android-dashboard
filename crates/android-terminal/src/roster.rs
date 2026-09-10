@@ -144,6 +144,8 @@ mod tests {
             serial: serial.to_string(),
             model: serial.to_string(),
             state,
+            release: "".to_string(),
+            build: "".to_string(),
         }
     }
 
