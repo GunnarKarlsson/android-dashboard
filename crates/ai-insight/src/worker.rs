@@ -39,9 +39,7 @@ pub fn spawn_insight(
 ) -> Receiver<InsightUpdate> {
     let (tx, rx) = crossbeam_channel::unbounded();
     if !config.is_configured() {
-        tracing::warn!(
-            "insight request skipped: AI provider is not configured"
-        );
+        tracing::warn!("insight request skipped: AI provider is not configured");
         return rx;
     }
     thread::spawn(move || run_insight(tx, config, snapshot, generation, serial));

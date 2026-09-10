@@ -32,9 +32,7 @@ pub fn complete(
     generation: u64,
 ) -> Result<String, InsightError> {
     if !config.is_configured() {
-        tracing::warn!(
-            "insight request skipped: AI provider is not configured"
-        );
+        tracing::warn!("insight request skipped: AI provider is not configured");
         return Err(InsightError::NotConfigured);
     }
 

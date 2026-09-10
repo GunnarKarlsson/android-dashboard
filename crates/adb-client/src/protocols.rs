@@ -521,9 +521,9 @@ UID tag stats:
     fn parse_uid_traffic_empty_or_garbage() {
         assert!(parse_uid_traffic("").is_empty());
         assert!(parse_uid_traffic("garbage with no UID stats:").is_empty());
-        assert!(parse_uid_traffic(
-            "UID stats:\n  ident=not-valid\n    st=1 rb=nope tb=nope\n"
-        )
-        .is_empty());
+        assert!(
+            parse_uid_traffic("UID stats:\n  ident=not-valid\n    st=1 rb=nope tb=nope\n")
+                .is_empty()
+        );
     }
 }

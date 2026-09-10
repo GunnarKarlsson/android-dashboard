@@ -299,10 +299,10 @@ mod tests {
     #[test]
     fn parse_user_storage_df_empty_or_garbage() {
         assert!(parse_user_storage_df("").is_err());
-        assert!(parse_user_storage_df(
-            "Filesystem     1K-blocks    Used Available Use% Mounted on\n"
-        )
-        .is_err());
+        assert!(
+            parse_user_storage_df("Filesystem     1K-blocks    Used Available Use% Mounted on\n")
+                .is_err()
+        );
         assert!(parse_user_storage_df(
             "Filesystem     1K-blocks    Used Available Use% Mounted on\n/dev/fuse  abc  def  ghi  90% /storage/emulated\n"
         )
