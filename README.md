@@ -135,6 +135,12 @@ Expected response format from API:
 }
 ```
 
+## Layout Persistence
+
+Panel layout is saved as `layout.json` under the OS config directory (`dirs::config_dir()/android-terminal/`). On macOS that is typically `~/Library/Application Support/android-terminal/layout.json`.
+
+If the file is missing or invalid, the app uses a default three-column layout. **Reset layout** in Settings restores that default and overwrites the file.
+
 ## Commands Used by App
 
 Every subprocess the app starts runs `adb` on `PATH`. Device-specific commands are always `adb -s <serial> …`. All `adb -s` shells share one mutex; poller threads do not run shells in parallel.
