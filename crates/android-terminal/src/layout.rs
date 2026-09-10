@@ -1,5 +1,6 @@
 use eframe::egui;
 use egui_tiles::{Behavior, ResizeState, TileId, Tree, UiResponse};
+use serde::{Deserialize, Serialize};
 
 use crate::app::App;
 use crate::panels;
@@ -14,7 +15,7 @@ const STORAGE_DETAILS_SHARE: f32 = 2.5;
 const LOGCAT_SHARE: f32 = 2.0;
 const INSIGHT_SHARE: f32 = 1.5;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PanelId {
     Devices,
     Ram,
@@ -291,5 +292,29 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
         }
 
         UiResponse::None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_tree_json_round_trips() {
+        let original = create_default_tree();
+        let json = serde_json::to_string(&original).expect("serialize default tree");
+        let restored: Tree<PanelId> = serde_json::from_str(&json).expect("deserialize default tree");
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn default_tree_pretty_json_has_panes_and_shares() {
+        let json = serde_json::to_string_pretty(&create_default_tree()).expect("pretty json");
+        assert!(
+            json.contains("\"Pane\": \"Devices\"") || json.contains("\"Pane\":\"Devices\""),
+            "missing Devices pane: {json}"
+        );
+        assert!(json.contains("\"Linear\""), "missing Linear container: {json}");
+        assert!(json.contains("\"shares\""), "missing shares: {json}");
     }
 }
