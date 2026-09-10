@@ -180,6 +180,6 @@ Closing the window kills the `adb logcat` child and signals pollers to stop. An 
 
 ## License
 
-[MIT](LICENSE)
+Copyright (c) 2026 Gunnar Karlsson. Licensed under the [MIT License](LICENSE).
 
 The UI uses JetBrains Mono Nerd Font (SIL Open Font License) from `crates/android-terminal/assets/fonts`.
