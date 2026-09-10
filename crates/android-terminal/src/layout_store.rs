@@ -27,7 +27,6 @@ pub(crate) fn encode(tree: &Tree<PanelId>) -> Result<String, serde_json::Error> 
 
 /// Parses versioned layout JSON into a tile tree.
 /// Returns None when the JSON is invalid, the version is not 1, or the pane set is incomplete.
-#[allow(dead_code)]
 pub(crate) fn decode(json: &str) -> Option<Tree<PanelId>> {
     let file: LayoutFile = serde_json::from_str(json).ok()?;
     (file.version == LAYOUT_VERSION && panes_are_complete(&file.tree)).then_some(file.tree)
@@ -54,7 +53,6 @@ fn panes_are_complete(tree: &Tree<PanelId>) -> bool {
 }
 
 /// Returns the on-disk path of the layout JSON, if a config directory exists.
-#[allow(dead_code)]
 pub(crate) fn layout_path() -> Option<PathBuf> {
     Some(
         dirs::config_dir()?
@@ -64,7 +62,6 @@ pub(crate) fn layout_path() -> Option<PathBuf> {
 }
 
 /// Reads layout JSON from `path`. Missing or invalid files yield the default tree.
-#[allow(dead_code)]
 pub(crate) fn load_from_path(path: &Path) -> Tree<PanelId> {
     match fs::read_to_string(path) {
         Err(err) if err.kind() == ErrorKind::NotFound => create_default_tree(),
@@ -99,7 +96,6 @@ pub(crate) fn save_to_path(path: &Path, tree: &Tree<PanelId>) -> std::io::Result
 }
 
 /// Loads the saved layout, or the default tree when none is available.
-#[allow(dead_code)]
 pub(crate) fn load_or_default() -> Tree<PanelId> {
     match layout_path() {
         Some(path) => load_from_path(&path),

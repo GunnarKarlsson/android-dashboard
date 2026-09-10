@@ -32,7 +32,7 @@ impl TerminalApp {
     ) -> Self {
         Self {
             inner: App::new(adb_error, devices, list_error),
-            layout_tree: layout::create_default_tree(),
+            layout_tree: layout_store::load_or_default(),
         }
     }
 }
