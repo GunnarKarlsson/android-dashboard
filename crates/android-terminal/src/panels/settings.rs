@@ -4,7 +4,10 @@ use eframe::egui;
 use crate::theme::{self, colors};
 
 /// Label column + spacing + text field width, matching the grid below.
-const DIALOG_WIDTH: f32 = 372.0;
+const AI_PROVIDER_DIALOG_WIDTH: f32 = 372.0;
+
+/// Gap from the window top/right edges to the dialog.
+const AI_PROVIDER_DIALOG_EDGE: f32 = 24.0;
 
 pub enum SettingsAction {
     Save(InsightConfig),
@@ -36,11 +39,10 @@ pub fn show(ctx: &egui::Context, dialog: &mut SettingsDialog) -> Option<Settings
         return None;
     }
 
-    let edge = theme::PANEL_CANVAS_MARGIN as f32;
     let screen = ctx.screen_rect();
     let pos = egui::pos2(
-        screen.max.x - edge - DIALOG_WIDTH,
-        theme::TITLE_BAR_HEIGHT + edge,
+        screen.max.x - AI_PROVIDER_DIALOG_EDGE - AI_PROVIDER_DIALOG_WIDTH,
+        theme::TITLE_BAR_HEIGHT + AI_PROVIDER_DIALOG_EDGE,
     );
 
     let mut open = true;
@@ -53,9 +55,9 @@ pub fn show(ctx: &egui::Context, dialog: &mut SettingsDialog) -> Option<Settings
         .resizable(false)
         .movable(false)
         .fixed_pos(pos)
-        .default_width(DIALOG_WIDTH)
-        .min_width(DIALOG_WIDTH)
-        .max_width(DIALOG_WIDTH)
+        .default_width(AI_PROVIDER_DIALOG_WIDTH)
+        .min_width(AI_PROVIDER_DIALOG_WIDTH)
+        .max_width(AI_PROVIDER_DIALOG_WIDTH)
         .default_height(0.0)
         .min_height(0.0)
         .frame(
@@ -97,13 +99,16 @@ pub fn show(ctx: &egui::Context, dialog: &mut SettingsDialog) -> Option<Settings
                 });
 
             ui.add_space(theme::ITEM_SPACING_Y);
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-                if ui.button("Save").clicked() {
-                    save = true;
-                }
-                if ui.button("Cancel").clicked() {
-                    cancel = true;
-                }
+            ui.scope(|ui| {
+                style_dialog_buttons(ui);
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                    if ui.button("Save").clicked() {
+                        save = true;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        cancel = true;
+                    }
+                });
             });
         });
 
@@ -120,4 +125,27 @@ pub fn show(ctx: &egui::Context, dialog: &mut SettingsDialog) -> Option<Settings
         return Some(SettingsAction::Cancel);
     }
     None
+}
+
+/// Panel-matched button chrome: body text, panel fill/border, selection fill when pressed.
+fn style_dialog_buttons(ui: &mut egui::Ui) {
+    ui.style_mut().text_styles.insert(
+        egui::TextStyle::Button,
+        egui::FontId::new(theme::FONT_BODY, egui::FontFamily::Proportional),
+    );
+
+    let stroke = egui::Stroke::new(1.0, colors::PANEL_BORDER);
+    let widgets = &mut ui.visuals_mut().widgets;
+    for style in [
+        &mut widgets.inactive,
+        &mut widgets.hovered,
+        &mut widgets.active,
+    ] {
+        style.weak_bg_fill = colors::PANEL_BG;
+        style.bg_fill = colors::PANEL_BG;
+        style.bg_stroke = stroke;
+        style.expansion = 0.0;
+    }
+    widgets.active.weak_bg_fill = colors::SELECTION;
+    widgets.active.bg_fill = colors::SELECTION;
 }
