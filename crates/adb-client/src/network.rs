@@ -376,6 +376,14 @@ Active interfaces:
     }
 
     #[test]
+    fn parse_proc_net_dev_empty_or_garbage() {
+        assert!(parse_proc_net_dev("").is_empty());
+        assert!(parse_proc_net_dev("not a table").is_empty());
+        assert!(parse_proc_net_dev("Inter-|   Receive\n face |bytes\n").is_empty());
+        assert!(parse_proc_net_dev("Inter-| Receive\n face |bytes\nwlan0: 1 2\n").is_empty());
+    }
+
+    #[test]
     fn parse_netstats_transports_sample() {
         let transports = parse_netstats_transports(NETSTATS_SAMPLE);
         assert_eq!(transports.get("wlan0"), Some(&"WiFi".to_string()));
