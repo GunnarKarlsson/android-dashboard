@@ -1,6 +1,11 @@
 use ai_insight::InsightConfig;
 use eframe::egui;
 
+use crate::theme::{self, colors};
+
+/// Label column + spacing + text field width, matching the grid below.
+const DIALOG_WIDTH: f32 = 372.0;
+
 pub enum SettingsAction {
     Save(InsightConfig),
     Cancel,
@@ -31,18 +36,39 @@ pub fn show(ctx: &egui::Context, dialog: &mut SettingsDialog) -> Option<Settings
         return None;
     }
 
+    let edge = theme::PANEL_CANVAS_MARGIN as f32;
+    let screen = ctx.screen_rect();
+    let pos = egui::pos2(
+        screen.max.x - edge - DIALOG_WIDTH,
+        theme::TITLE_BAR_HEIGHT + edge,
+    );
+
     let mut open = true;
     let mut save = false;
     let mut cancel = false;
     egui::Window::new("Configure AI Provider")
+        .id(egui::Id::new("ai_provider_settings"))
         .open(&mut open)
         .collapsible(false)
         .resizable(false)
-        .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+        .movable(false)
+        .fixed_pos(pos)
+        .default_width(DIALOG_WIDTH)
+        .min_width(DIALOG_WIDTH)
+        .max_width(DIALOG_WIDTH)
+        .default_height(0.0)
+        .min_height(0.0)
+        .frame(
+            egui::Frame::default()
+                .fill(colors::PANEL_BG)
+                .stroke(egui::Stroke::new(1.0, colors::PANEL_BORDER))
+                .corner_radius(egui::CornerRadius::same(theme::PANEL_CORNER_RADIUS))
+                .inner_margin(egui::Margin::same(theme::PANEL_INNER_PADDING)),
+        )
         .show(ctx, |ui| {
             egui::Grid::new("ai_provider_fields")
                 .num_columns(2)
-                .spacing([8.0, 8.0])
+                .spacing([8.0, 6.0])
                 .show(ui, |ui| {
                     ui.label("Base URL");
                     ui.add(
@@ -70,8 +96,8 @@ pub fn show(ctx: &egui::Context, dialog: &mut SettingsDialog) -> Option<Settings
                     ui.end_row();
                 });
 
-            ui.add_space(8.0);
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.add_space(theme::ITEM_SPACING_Y);
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
                 if ui.button("Save").clicked() {
                     save = true;
                 }
