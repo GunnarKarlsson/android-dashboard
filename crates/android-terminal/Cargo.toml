@@ -5,8 +5,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-adb-client = { path = "../adb-client" }
-ai-insight = { path = "../ai-insight" }
+adb-client = { path = "../adb-client", version = "0.1.0" }
+ai-insight = { path = "../ai-insight", version = "0.1.0" }
 anyhow.workspace = true
 crossbeam-channel.workspace = true
 dirs.workspace = true
