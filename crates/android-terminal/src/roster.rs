@@ -54,9 +54,7 @@ impl DeviceRoster {
 
     /// Applies finished list updates that match the current generation.
     pub fn drain_list(&mut self) -> Option<RosterEvent> {
-        let Some(rx) = self.list_rx.as_ref() else {
-            return None;
-        };
+        let rx = self.list_rx.as_ref()?;
 
         let Ok(update) = rx.try_recv() else {
             return None;
