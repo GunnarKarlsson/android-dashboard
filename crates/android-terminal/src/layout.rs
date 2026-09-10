@@ -16,6 +16,7 @@ const LOGCAT_SHARE: f32 = 2.0;
 const INSIGHT_SHARE: f32 = 1.5;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
 pub enum PanelId {
     Devices,
     Ram,
@@ -40,6 +41,21 @@ impl PanelId {
         Self::Network,
         Self::Protocols,
     ];
+
+    /// Returns this pane's variant name.
+    fn ident(self) -> &'static str {
+        match self {
+            PanelId::Devices => "Devices",
+            PanelId::Ram => "Ram",
+            PanelId::Storage => "Storage",
+            PanelId::LogcatAll => "LogcatAll",
+            PanelId::LogcatErrors => "LogcatErrors",
+            PanelId::Insight => "Insight",
+            PanelId::SystemStats => "SystemStats",
+            PanelId::Network => "Network",
+            PanelId::Protocols => "Protocols",
+        }
+    }
 
     fn title(self) -> &'static str {
         match self {
@@ -67,6 +83,23 @@ impl PanelId {
             PanelId::Protocols => theme::icons::traffic(),
             PanelId::Devices => theme::icons::device(),
         })
+    }
+}
+
+impl From<PanelId> for String {
+    fn from(pane: PanelId) -> Self {
+        pane.ident().to_owned()
+    }
+}
+
+impl TryFrom<String> for PanelId {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::ALL
+            .into_iter()
+            .find(|pane| pane.ident() == value)
+            .ok_or(value)
     }
 }
 
@@ -323,6 +356,14 @@ mod tests {
         let restored: Tree<PanelId> =
             serde_json::from_str(&json).expect("deserialize default tree");
         assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn panel_id_json_is_the_variant_name() {
+        let json = serde_json::to_string(&PanelId::LogcatErrors).expect("serialize");
+        assert_eq!(json, "\"LogcatErrors\"");
+        let restored: PanelId = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(restored, PanelId::LogcatErrors);
     }
 
     #[test]
