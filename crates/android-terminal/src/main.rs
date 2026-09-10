@@ -1,6 +1,7 @@
 mod app;
 mod format;
 mod insight;
+mod insight_store;
 mod layout;
 mod layout_store;
 mod logcat_pane;
@@ -18,17 +19,19 @@ use egui_tiles::Tree;
 
 use crate::app::App;
 use crate::layout::PanelId;
+use crate::panels::settings::{SettingsAction, SettingsDialog};
 
 struct TerminalApp {
     inner: App,
     layout_tree: Tree<PanelId>,
     layout_saver: layout_store::LayoutSaver,
+    settings: SettingsDialog,
 }
 
 impl TerminalApp {
     fn new(adb_error: Option<String>) -> Self {
         let should_refresh = adb_error.is_none();
-        let mut inner = App::new(adb_error, ai_insight::InsightConfig::from_env());
+        let mut inner = App::new(adb_error, insight_store::load_or_default());
         if should_refresh {
             inner.refresh_devices();
         }
@@ -36,6 +39,7 @@ impl TerminalApp {
             inner,
             layout_tree: layout_store::load_or_default(),
             layout_saver: layout_store::LayoutSaver::default(),
+            settings: SettingsDialog::default(),
         }
     }
 }
@@ -45,12 +49,28 @@ impl eframe::App for TerminalApp {
         self.inner.tick(ctx);
 
         #[cfg(target_os = "macos")]
-        if ui_elements::title_bar(ctx, frame) {
-            self.layout_tree = layout::create_default_tree();
-            if layout_store::save(&self.layout_tree) {
-                self.layout_saver.clear_dirty();
-            } else {
-                self.layout_saver.mark_edit();
+        {
+            let title = ui_elements::title_bar(ctx, frame);
+            if title.reset_layout {
+                self.layout_tree = layout::create_default_tree();
+                if layout_store::save(&self.layout_tree) {
+                    self.layout_saver.clear_dirty();
+                } else {
+                    self.layout_saver.mark_edit();
+                }
+            }
+            if title.open_ai_settings {
+                self.settings.open_from(self.inner.insight.config());
+            }
+        }
+
+        if let Some(action) = panels::settings::show(ctx, &mut self.settings) {
+            match action {
+                SettingsAction::Save(config) => {
+                    insight_store::save(&config);
+                    self.inner.insight.set_config(config);
+                }
+                SettingsAction::Cancel => {}
             }
         }
 
@@ -80,7 +100,6 @@ impl eframe::App for TerminalApp {
 }
 
 fn main() -> eframe::Result<()> {
-    load_dotenv();
     init_tracing();
     tracing::info!("android-terminal started");
 
@@ -112,17 +131,6 @@ fn main() -> eframe::Result<()> {
             Ok(Box::new(TerminalApp::new(adb_error)))
         }),
     )
-}
-
-/// Loads `crates/android-terminal/.env` into the process environment.
-fn load_dotenv() {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".env");
-    if let Err(err) = dotenvy::from_path(&path) {
-        if err.not_found() {
-            return;
-        }
-        eprintln!("failed to load .env: {err}");
-    }
 }
 
 /// Installs a stderr `tracing` subscriber.

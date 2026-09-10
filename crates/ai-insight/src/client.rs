@@ -13,7 +13,7 @@ const MAX_REPLY_WORDS: u32 = 120;
 
 #[derive(Debug, thiserror::Error)]
 pub enum InsightError {
-    #[error("AI_PROVIDER_API_KEY, AI_PROVIDER_BASE_URL, and AI_PROVIDER_MODEL must be set")]
+    #[error("AI provider base URL, model, and API key must be set")]
     NotConfigured,
     #[error("HTTP {status}: {body}")]
     Http { status: u16, body: String },
@@ -33,7 +33,7 @@ pub fn complete(
 ) -> Result<String, InsightError> {
     if !config.is_configured() {
         tracing::warn!(
-            "insight request skipped: AI_PROVIDER_API_KEY, AI_PROVIDER_BASE_URL, and AI_PROVIDER_MODEL must be set"
+            "insight request skipped: AI provider is not configured"
         );
         return Err(InsightError::NotConfigured);
     }

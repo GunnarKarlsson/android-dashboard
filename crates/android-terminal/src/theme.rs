@@ -123,6 +123,9 @@ pub const FONT_HEADING: f32 = 16.0;
 pub const ITEM_SPACING_X: f32 = 8.0;
 pub const ITEM_SPACING_Y: f32 = 6.0;
 
+/// Inner padding between popup menu border and items.
+pub const MENU_MARGIN: i8 = 10;
+
 /// Horizontal and vertical spacing inside data grids.
 pub const GRID_SPACING: [f32; 2] = [12.0, 4.0];
 
@@ -187,6 +190,7 @@ pub fn configure(ctx: &Context) {
 
 fn apply_shared_style(style: &mut egui::Style) {
     style.spacing.window_margin = egui::Margin::same(PANEL_INNER_PADDING);
+    style.spacing.menu_margin = egui::Margin::same(MENU_MARGIN);
     style.spacing.item_spacing = egui::vec2(ITEM_SPACING_X, ITEM_SPACING_Y);
 
     let bold = FontFamily::Name("jetbrains_mono_bold".into());

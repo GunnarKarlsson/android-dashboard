@@ -21,11 +21,7 @@ pub struct InsightController {
 
 impl Default for InsightController {
     fn default() -> Self {
-        Self::new(InsightConfig {
-            api_key: String::new(),
-            base_url: String::new(),
-            model: String::new(),
-        })
+        Self::new(InsightConfig::default())
     }
 }
 
@@ -38,6 +34,16 @@ impl InsightController {
             rx: None,
             serial: None,
         }
+    }
+
+    /// Returns the live provider config.
+    pub(crate) fn config(&self) -> &InsightConfig {
+        &self.config
+    }
+
+    /// Replaces the live provider config.
+    pub(crate) fn set_config(&mut self, config: InsightConfig) {
+        self.config = config;
     }
 
     /// Clears request state and the in-flight channel. Leaves `auto_update_feed` and `config` unchanged.
