@@ -73,7 +73,7 @@ When the mix of errors changes, the app posts again, with a cooldown.
 
 The model replies with a one-line verdict (`HEALTHY` / `DEGRADING` / `FAILING`), top issues, and a recommendation for what to do next. That text shows in the **Insight** panel.
 
-No request is sent until `AI_PROVIDER_API_KEY` is set.
+No request is sent until `AI_PROVIDER_API_KEY`, `AI_PROVIDER_BASE_URL`, and `AI_PROVIDER_MODEL` are set.
 
 ## Configuration
 
@@ -87,8 +87,8 @@ On startup the app also loads `crates/android-terminal/.env` if that file exists
 | Variable | Required | Default |
 | --- | --- | --- |
 | `AI_PROVIDER_API_KEY` | yes | (empty — Insight is skipped) |
-| `AI_PROVIDER_BASE_URL` | no | `https://api.deepseek.com` |
-| `AI_PROVIDER_MODEL` | no | `deepseek-v4-pro` |
+| `AI_PROVIDER_BASE_URL` | yes | (empty — Insight is skipped) |
+| `AI_PROVIDER_MODEL` | yes | (empty — Insight is skipped) |
 
 Example `.env`:
 

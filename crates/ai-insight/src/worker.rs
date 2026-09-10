@@ -27,6 +27,8 @@ pub enum InsightUpdate {
 
 /// Starts a thread that POSTs `snapshot` and sends [`InsightUpdate`] values on a channel.
 ///
+/// Does nothing when [`InsightConfig::is_configured`] is false: no thread, no HTTP.
+///
 /// - `generation` — caller sequence id; echoed on every update
 /// - `serial` — adb serial the snapshot was built for; echoed on every update
 pub fn spawn_insight(
@@ -35,12 +37,20 @@ pub fn spawn_insight(
     serial: String,
 ) -> Receiver<InsightUpdate> {
     let (tx, rx) = crossbeam_channel::unbounded();
-    thread::spawn(move || run_insight(tx, snapshot, generation, serial));
+    let config = InsightConfig::from_env();
+    if !config.is_configured() {
+        tracing::warn!(
+            "insight request skipped: AI_PROVIDER_API_KEY, AI_PROVIDER_BASE_URL, and AI_PROVIDER_MODEL must be set"
+        );
+        return rx;
+    }
+    thread::spawn(move || run_insight(tx, config, snapshot, generation, serial));
     rx
 }
 
 fn run_insight(
     tx: Sender<InsightUpdate>,
+    config: InsightConfig,
     snapshot: InsightSnapshot,
     generation: u64,
     serial: String,
@@ -50,7 +60,6 @@ fn run_insight(
         serial: serial.clone(),
     });
 
-    let config = InsightConfig::from_env();
     match complete(&config, &snapshot, generation) {
         Ok(text) => {
             let _ = tx.send(InsightUpdate::Reply {

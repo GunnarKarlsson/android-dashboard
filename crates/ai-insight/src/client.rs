@@ -13,8 +13,8 @@ const MAX_REPLY_WORDS: u32 = 120;
 
 #[derive(Debug, thiserror::Error)]
 pub enum InsightError {
-    #[error("AI_PROVIDER_API_KEY is not set")]
-    MissingApiKey,
+    #[error("AI_PROVIDER_API_KEY, AI_PROVIDER_BASE_URL, and AI_PROVIDER_MODEL must be set")]
+    NotConfigured,
     #[error("HTTP {status}: {body}")]
     Http { status: u16, body: String },
     #[error("{0}")]
@@ -31,9 +31,11 @@ pub fn complete(
     snapshot: &InsightSnapshot,
     generation: u64,
 ) -> Result<String, InsightError> {
-    if !config.has_api_key() {
-        tracing::warn!("insight request skipped: AI_PROVIDER_API_KEY is not set");
-        return Err(InsightError::MissingApiKey);
+    if !config.is_configured() {
+        tracing::warn!(
+            "insight request skipped: AI_PROVIDER_API_KEY, AI_PROVIDER_BASE_URL, and AI_PROVIDER_MODEL must be set"
+        );
+        return Err(InsightError::NotConfigured);
     }
 
     let snapshot_json = snapshot

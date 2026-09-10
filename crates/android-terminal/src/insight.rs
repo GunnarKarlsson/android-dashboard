@@ -2,7 +2,8 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
 use ai_insight::{
-    build_snapshot, spawn_insight, InsightLine, InsightSnapshot, InsightUpdate, LevelMask,
+    build_snapshot, spawn_insight, InsightConfig, InsightLine, InsightSnapshot, InsightUpdate,
+    LevelMask,
 };
 use crossbeam_channel::Receiver;
 
@@ -41,7 +42,7 @@ impl InsightController {
         self.state.last_error_at = Some(Instant::now());
     }
 
-    /// Builds a snapshot. If settle/cooldown/digest say send, queues the worker.
+    /// Builds a snapshot. If the provider is configured and settle/cooldown/digest say send, queues the worker.
     /// Returns true if a request started.
     pub(crate) fn maybe_request(
         &mut self,
@@ -50,6 +51,9 @@ impl InsightController {
         lines: impl IntoIterator<Item = InsightLine>,
     ) -> bool {
         if self.state.status == InsightStatus::RequestSent {
+            return false;
+        }
+        if !InsightConfig::from_env().is_configured() {
             return false;
         }
 
