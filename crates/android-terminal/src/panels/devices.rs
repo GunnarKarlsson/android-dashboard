@@ -18,6 +18,7 @@ pub fn devices_panel(
     let mut refresh = false;
     let mut selected = None;
     let refreshed_at = roster.devices_refreshed_at;
+    let list_job_in_flight = roster.list_job_in_flight;
     ui_elements::panel_with_custom_footer(
         ui,
         icon,
@@ -27,7 +28,7 @@ pub fn devices_panel(
             selected = show_devices_body(ui, roster);
         },
         |ui| {
-            refresh = ui_elements::devices_footer(ui, refreshed_at);
+            refresh = ui_elements::devices_footer(ui, refreshed_at, list_job_in_flight);
         },
     );
     if refresh {
@@ -49,7 +50,9 @@ fn show_devices_body(ui: &mut egui::Ui, roster: &DeviceRoster) -> Option<String>
     }
 
     if roster.devices.is_empty() {
-        ui.label("No devices found.");
+        if !roster.list_job_in_flight {
+            ui.label("No devices found.");
+        }
         return None;
     }
 

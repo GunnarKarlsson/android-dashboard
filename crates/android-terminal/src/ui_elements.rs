@@ -487,11 +487,21 @@ pub fn panel_footer(
 
 /// Footer with last-refresh status and a right-aligned Refresh control.
 /// Returns `true` when Refresh is clicked.
-pub fn devices_footer(ui: &mut Ui, refreshed_at: Option<Instant>) -> bool {
+pub fn devices_footer(
+    ui: &mut Ui,
+    refreshed_at: Option<Instant>,
+    list_job_in_flight: bool,
+) -> bool {
     let mut refresh = false;
     footer_bar(ui, |ui| {
         ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-            if let Some(at) = refreshed_at {
+            if list_job_in_flight {
+                ui.label(
+                    egui::RichText::new("Refreshing…")
+                        .small()
+                        .color(colors::FOOTER_TEXT),
+                );
+            } else if let Some(at) = refreshed_at {
                 ui.label(
                     egui::RichText::new(refresh_age_label(at))
                         .small()

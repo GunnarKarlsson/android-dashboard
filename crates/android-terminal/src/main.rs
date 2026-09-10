@@ -13,7 +13,7 @@ mod session;
 mod theme;
 mod ui_elements;
 
-use adb_client::{Adb, DeviceInfo};
+use adb_client::Adb;
 use egui_tiles::Tree;
 
 use crate::app::App;
@@ -26,18 +26,14 @@ struct TerminalApp {
 }
 
 impl TerminalApp {
-    fn new(
-        adb_error: Option<String>,
-        devices: Vec<DeviceInfo>,
-        list_error: Option<String>,
-    ) -> Self {
+    fn new(adb_error: Option<String>) -> Self {
+        let should_refresh = adb_error.is_none();
+        let mut inner = App::new(adb_error, ai_insight::InsightConfig::from_env());
+        if should_refresh {
+            inner.refresh_devices();
+        }
         Self {
-            inner: App::new(
-                adb_error,
-                devices,
-                list_error,
-                ai_insight::InsightConfig::from_env(),
-            ),
+            inner,
             layout_tree: layout_store::load_or_default(),
             layout_saver: layout_store::LayoutSaver::default(),
         }
@@ -113,17 +109,7 @@ fn main() -> eframe::Result<()> {
         Box::new(|cc| {
             theme::configure(&cc.egui_ctx);
 
-            let (devices, list_error) = if adb_error.is_none() {
-                // Listing is synchronous and can block a frame. Do not move it off the UI thread.
-                match Adb::list_devices() {
-                    Ok(devices) => (devices, None),
-                    Err(err) => (Vec::new(), Some(err.to_string())),
-                }
-            } else {
-                (Vec::new(), None)
-            };
-
-            Ok(Box::new(TerminalApp::new(adb_error, devices, list_error)))
+            Ok(Box::new(TerminalApp::new(adb_error)))
         }),
     )
 }

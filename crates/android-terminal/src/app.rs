@@ -1,11 +1,10 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use adb_client::DeviceInfo;
 use ai_insight::InsightConfig;
 use eframe::egui;
 
 use crate::metrics::MetricStore;
-use crate::roster::{first_ready_serial, DeviceRoster, RosterEvent};
+use crate::roster::{DeviceRoster, RosterEvent};
 use crate::session::{DeviceSession, SessionStartErrors};
 
 pub use crate::insight::{InsightController, InsightStatus};
@@ -24,25 +23,9 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(
-        adb_error: Option<String>,
-        devices: Vec<DeviceInfo>,
-        list_error: Option<String>,
-        insight: InsightConfig,
-    ) -> Self {
-        let devices_refreshed_at = if adb_error.is_none() {
-            Some(Instant::now())
-        } else {
-            None
-        };
-        let mut app = App {
-            roster: DeviceRoster {
-                adb_error,
-                devices,
-                list_error,
-                devices_refreshed_at,
-                selected_serial: None,
-            },
+    pub fn new(adb_error: Option<String>, insight: InsightConfig) -> Self {
+        App {
+            roster: DeviceRoster::new(adb_error),
             session: DeviceSession::default(),
             logcat: LogcatPane::default(),
             logcat_errors: LogcatPane {
@@ -51,19 +34,11 @@ impl App {
             },
             metrics: MetricStore::default(),
             insight: InsightController::new(insight),
-        };
-        if let Some(serial) = first_ready_serial(&app.roster.devices) {
-            app.select_device(serial);
         }
-        app
     }
 
     pub fn refresh_devices(&mut self) {
-        match self.roster.refresh() {
-            RosterEvent::Unchanged => {}
-            RosterEvent::LostSelection => self.deselect_device(),
-            RosterEvent::AutoSelect(serial) => self.select_device(serial),
-        }
+        self.roster.request_refresh();
     }
 
     pub fn select_device(&mut self, serial: String) {
@@ -118,14 +93,30 @@ impl App {
         self.insight.reset();
     }
 
+    fn apply_roster_event(&mut self, event: RosterEvent) {
+        match event {
+            RosterEvent::Unchanged => {}
+            RosterEvent::LostSelection => self.deselect_device(),
+            RosterEvent::AutoSelect(serial) => self.select_device(serial),
+        }
+    }
+
     pub fn tick(&mut self, ctx: &egui::Context) {
+        let mut needs_repaint = false;
+        if let Some(event) = self.roster.drain_list() {
+            self.apply_roster_event(event);
+            needs_repaint = true;
+        }
+
         let outcome =
             self.session
                 .drain_into(&mut self.logcat, &mut self.logcat_errors, &mut self.metrics);
         if outcome.error_accepted {
             self.insight.note_error();
         }
-        let mut needs_repaint = outcome.ui_changed;
+        if outcome.ui_changed {
+            needs_repaint = true;
+        }
         if self.insight.drain(self.roster.selected_serial.as_deref()) {
             needs_repaint = true;
         }
@@ -133,7 +124,7 @@ impl App {
         if needs_repaint {
             ctx.request_repaint();
         }
-        if self.roster.selected_serial.is_some() {
+        if self.roster.selected_serial.is_some() || self.roster.list_job_in_flight {
             ctx.request_repaint_after(REPAINT_INTERVAL);
         }
     }
