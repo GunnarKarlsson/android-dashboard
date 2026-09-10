@@ -1,5 +1,6 @@
 use eframe::egui;
 use egui_tiles::{Behavior, ResizeState, TileId, Tree, UiResponse};
+use serde::{Deserialize, Serialize};
 
 use crate::app::App;
 use crate::panels;
@@ -14,7 +15,7 @@ const STORAGE_DETAILS_SHARE: f32 = 2.5;
 const LOGCAT_SHARE: f32 = 2.0;
 const INSIGHT_SHARE: f32 = 1.5;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PanelId {
     Devices,
     Ram,
@@ -28,6 +29,18 @@ pub enum PanelId {
 }
 
 impl PanelId {
+    pub(crate) const ALL: [Self; 9] = [
+        Self::Devices,
+        Self::Ram,
+        Self::Storage,
+        Self::LogcatAll,
+        Self::LogcatErrors,
+        Self::Insight,
+        Self::SystemStats,
+        Self::Network,
+        Self::Protocols,
+    ];
+
     fn title(self) -> &'static str {
         match self {
             PanelId::Devices => "Devices",
@@ -135,18 +148,23 @@ fn set_linear_shares(
     }
 }
 
-pub fn show(ui: &mut egui::Ui, tree: &mut Tree<PanelId>, app: &mut App) {
-    let mut behavior = AppTilesBehavior { app };
+pub fn show(ui: &mut egui::Ui, tree: &mut Tree<PanelId>, app: &mut App, layout_dirty: &mut bool) {
+    let mut behavior = AppTilesBehavior { app, layout_dirty };
     tree.ui(&mut behavior, ui);
 }
 
 struct AppTilesBehavior<'a> {
     app: &'a mut App,
+    layout_dirty: &'a mut bool,
 }
 
 impl Behavior<PanelId> for AppTilesBehavior<'_> {
     fn tab_title_for_pane(&mut self, pane: &PanelId) -> egui::WidgetText {
         pane.title().into()
+    }
+
+    fn on_edit(&mut self, _action: egui_tiles::EditAction) {
+        *self.layout_dirty = true;
     }
 
     fn gap_width(&self, _style: &egui::Style) -> f32 {
@@ -291,5 +309,33 @@ impl Behavior<PanelId> for AppTilesBehavior<'_> {
         }
 
         UiResponse::None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_tree_json_round_trips() {
+        let original = create_default_tree();
+        let json = serde_json::to_string(&original).expect("serialize default tree");
+        let restored: Tree<PanelId> =
+            serde_json::from_str(&json).expect("deserialize default tree");
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn default_tree_pretty_json_has_panes_and_shares() {
+        let json = serde_json::to_string_pretty(&create_default_tree()).expect("pretty json");
+        assert!(
+            json.contains("\"Pane\": \"Devices\"") || json.contains("\"Pane\":\"Devices\""),
+            "missing Devices pane: {json}"
+        );
+        assert!(
+            json.contains("\"Linear\""),
+            "missing Linear container: {json}"
+        );
+        assert!(json.contains("\"shares\""), "missing shares: {json}");
     }
 }

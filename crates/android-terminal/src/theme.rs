@@ -167,6 +167,11 @@ pub mod icons {
     pub fn device() -> egui::ImageSource<'static> {
         egui::include_image!("../assets/icons/device.svg")
     }
+
+    /// Cog icon.
+    pub fn cog() -> egui::ImageSource<'static> {
+        egui::include_image!("../assets/icons/cog.svg")
+    }
 }
 
 /// Apply app-wide egui styling.

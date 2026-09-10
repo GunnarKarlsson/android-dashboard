@@ -9,11 +9,14 @@ adb-client = { path = "../adb-client" }
 ai-insight = { path = "../ai-insight" }
 anyhow.workspace = true
 crossbeam-channel.workspace = true
+dirs.workspace = true
 dotenvy.workspace = true
 eframe.workspace = true
 egui.workspace = true
 egui_extras.workspace = true
 egui_tiles.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 

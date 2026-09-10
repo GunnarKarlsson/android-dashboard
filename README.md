@@ -1,4 +1,4 @@
-# Android Dashboard
+# Android Debug Dashboard
 
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 ![Rust](https://img.shields.io/badge/rust-1.88.0-orange?logo=rust)
@@ -8,8 +8,6 @@
 
 A dashboard written in Rust for debugging Android apps on macOS. 
 Shows essential Android debug data from hardware devices and emulator in a single window, together with LLM-generated insights into the error log.
-
-The UI uses JetBrains Mono Nerd Font (SIL Open Font License) from `crates/android-terminal/assets/fonts`.
 
 ![Android Terminal dashboard](screenshot1.png)
 
@@ -179,3 +177,9 @@ pkg='com.example.app'; printf '@PKG@%s\n' "$pkg"; cmd package get-package-storag
 Nothing is written to the device.
 
 Closing the window kills the `adb logcat` child and signals pollers to stop. An `adb` command already in flight is not killed; it finishes, then the process exits. The app does not stop the adb server.
+
+## License
+
+[MIT](LICENSE)
+
+The UI uses JetBrains Mono Nerd Font (SIL Open Font License) from `crates/android-terminal/assets/fonts`.

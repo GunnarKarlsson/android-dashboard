@@ -2,6 +2,7 @@ mod app;
 mod format;
 mod insight;
 mod layout;
+mod layout_store;
 mod logcat_pane;
 #[cfg(target_os = "macos")]
 mod macos;
@@ -21,6 +22,7 @@ use crate::layout::PanelId;
 struct TerminalApp {
     inner: App,
     layout_tree: Tree<PanelId>,
+    layout_saver: layout_store::LayoutSaver,
 }
 
 impl TerminalApp {
@@ -31,7 +33,8 @@ impl TerminalApp {
     ) -> Self {
         Self {
             inner: App::new(adb_error, devices, list_error),
-            layout_tree: layout::create_default_tree(),
+            layout_tree: layout_store::load_or_default(),
+            layout_saver: layout_store::LayoutSaver::default(),
         }
     }
 }
@@ -41,18 +44,36 @@ impl eframe::App for TerminalApp {
         self.inner.tick(ctx);
 
         #[cfg(target_os = "macos")]
-        ui_elements::title_bar(ctx, frame);
+        if ui_elements::title_bar(ctx, frame) {
+            self.layout_tree = layout::create_default_tree();
+            if layout_store::save(&self.layout_tree) {
+                self.layout_saver.clear_dirty();
+            } else {
+                self.layout_saver.mark_edit();
+            }
+        }
 
+        let mut layout_dirty = false;
         eframe::egui::CentralPanel::default()
             .frame(ui_elements::shell_frame(ctx))
             .show(ctx, |ui| {
                 ui_elements::canvas_margin_frame().show(ui, |ui| {
-                    layout::show(ui, &mut self.layout_tree, &mut self.inner);
+                    layout::show(
+                        ui,
+                        &mut self.layout_tree,
+                        &mut self.inner,
+                        &mut layout_dirty,
+                    );
                 });
             });
+        if layout_dirty {
+            self.layout_saver.mark_edit();
+        }
+        self.layout_saver.tick(ctx, &self.layout_tree);
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        self.layout_saver.flush(&self.layout_tree);
         self.inner.shutdown();
     }
 }
