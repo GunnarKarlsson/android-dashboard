@@ -1,0 +1,42 @@
+# https://embarkstudios.github.io/cargo-deny/
+
+[advisories]
+ignore = [
+    # Transitive via egui accesskit → zbus_xml; we do not parse untrusted XML.
+    { id = "RUSTSEC-2026-0194", reason = "quick-xml via egui/accesskit AT-SPI stack; no untrusted XML parsing" },
+    { id = "RUSTSEC-2026-0195", reason = "quick-xml via egui/accesskit AT-SPI stack; no untrusted XML parsing" },
+    # Transitive via egui → ab_glyph; no maintained upgrade path yet.
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser unmaintained; pulled by egui/ab_glyph until upstream switches" },
+    # Transitive via accesskit_windows → paste; no upgrade, Windows-only a11y path.
+    { id = "RUSTSEC-2024-0436", reason = "paste unmaintained; transitive via accesskit_windows/egui" },
+]
+
+[licenses]
+version = 2
+confidence-threshold = 0.8
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "0BSD",
+    "Zlib",
+    "Unicode-3.0",
+    "Unlicense",
+    "BSL-1.0",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
+    "OFL-1.1",
+    "Ubuntu-font-1.0",
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
