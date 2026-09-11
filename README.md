@@ -3,6 +3,7 @@
 ![Rust](https://img.shields.io/badge/rust-1.88.0-orange?logo=rust)
 ![macOS](https://img.shields.io/badge/platform-macOS-black?logo=apple)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/GunnarKarlsson/android-dashboard)](https://github.com/GunnarKarlsson/android-dashboard/releases/latest)
 [![CI](https://github.com/GunnarKarlsson/android-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/GunnarKarlsson/android-dashboard/actions/workflows/ci.yml)
 [![Stars](https://img.shields.io/github/stars/GunnarKarlsson/android-dashboard)](https://github.com/GunnarKarlsson/android-dashboard/stargazers)
 
