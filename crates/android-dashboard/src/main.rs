@@ -101,13 +101,13 @@ impl eframe::App for TerminalApp {
 
 fn main() -> eframe::Result<()> {
     init_tracing();
-    tracing::info!("android-terminal started");
+    tracing::info!("android-dashboard started");
 
     let adb_error = Adb::check_available().err().map(|e| e.to_string());
 
     let mut viewport = eframe::egui::ViewportBuilder::default()
         .with_inner_size(theme::DEFAULT_WINDOW_SIZE)
-        .with_title("Android Terminal");
+        .with_title("Android Debug Dashboard");
     #[cfg(target_os = "macos")]
     {
         // Content draws under the traffic lights; we paint a dark grey title strip.
@@ -123,7 +123,7 @@ fn main() -> eframe::Result<()> {
     };
 
     eframe::run_native(
-        "Android Terminal",
+        "Android Debug Dashboard",
         options,
         Box::new(|cc| {
             theme::configure(&cc.egui_ctx);
@@ -134,12 +134,12 @@ fn main() -> eframe::Result<()> {
 }
 
 /// Installs a stderr `tracing` subscriber.
-/// Uses `RUST_LOG` when set; otherwise `ai_insight=info,android_terminal=info`.
+/// Uses `RUST_LOG` when set; otherwise `ai_insight=info,android_dashboard=info`.
 fn init_tracing() {
     use tracing_subscriber::EnvFilter;
 
     let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("ai_insight=info,android_terminal=info"));
+        .unwrap_or_else(|_| EnvFilter::new("ai_insight=info,android_dashboard=info"));
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_writer(std::io::stderr)

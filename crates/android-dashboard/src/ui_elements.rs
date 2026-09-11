@@ -81,7 +81,7 @@ pub fn title_bar(ctx: &Context, frame: &eframe::Frame) -> TitleBarAction {
             ui.painter().text(
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
-                "Android Terminal",
+                "Android Debug Dashboard",
                 FontId::new(theme::FONT_BODY, FontFamily::Proportional),
                 colors::OFF_WHITE,
             );

@@ -9,7 +9,7 @@
 A dashboard written in Rust for debugging Android apps on macOS. 
 Shows essential Android debug data from hardware devices and emulator in a single window, together with LLM-generated insights into the error log.
 
-![Android Terminal dashboard](screenshot1.png)
+![Android Dashboard dashboard](screenshot1.png)
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ cargo build
 ## Run the Dashboard
 
 ```bash
-cargo run -p android-terminal
+cargo run -p android-dashboard
 ```
 
 ## Install from a release
@@ -42,8 +42,8 @@ macOS binaries are published on the [Releases](https://github.com/GunnarKarlsson
 After download, macOS may block the binary (Gatekeeper / quarantine). In Finder, right-click the binary → **Open**. Or clear quarantine and run from a terminal:
 
 ```bash
-xattr -d com.apple.quarantine android-terminal
-./android-terminal
+xattr -d com.apple.quarantine android-dashboard
+./android-dashboard
 ```
 
 You'll need `adb` on your `PATH` and a device running to see data.
@@ -54,7 +54,7 @@ You'll need `adb` on your `PATH` and a device running to see data.
 crates/
   adb-client/       # adb command wrappers and parsing
   ai-insight/       # error clustering and Chat Completions client
-  android-terminal/ # GUI application
+  android-dashboard/ # GUI application
 ```
 
 ## How to Use the Dashboard
@@ -90,7 +90,7 @@ No request is sent until base URL, model, and API key are set via **Configure AI
 
 ## Configuration
 
-Insight is optional. Configure the provider from the macOS cog menu: **Configure AI Provider**. Settings are stored as `insight.json` next to `layout.json` under the OS config directory (`dirs::config_dir()/android-terminal/`). On macOS that is typically `~/Library/Application Support/android-terminal/insight.json`.
+Insight is optional. Configure the provider from the macOS cog menu: **Configure AI Provider**. Settings are stored as `insight.json` next to `layout.json` under the OS config directory (`dirs::config_dir()/android-dashboard/`). On macOS that is typically `~/Library/Application Support/android-dashboard/insight.json`.
 
 | Field | Required |
 | --- | --- |
@@ -145,7 +145,7 @@ Expected response format from API:
 
 ## Layout Persistence
 
-Panel layout is saved as `layout.json` under the OS config directory (`dirs::config_dir()/android-terminal/`). On macOS that is typically `~/Library/Application Support/android-terminal/layout.json`.
+Panel layout is saved as `layout.json` under the OS config directory (`dirs::config_dir()/android-dashboard/`). On macOS that is typically `~/Library/Application Support/android-dashboard/layout.json`.
 
 If the file is missing or invalid, the app uses a default three-column layout. **Reset Dashboard Layout** in the cog menu restores that default and overwrites the file.
 
@@ -196,4 +196,4 @@ Closing the window kills the `adb logcat` child and signals pollers to stop. An 
 
 Copyright (c) 2026 Gunnar Karlsson. Licensed under the [MIT License](LICENSE).
 
-The UI uses JetBrains Mono Nerd Font (SIL Open Font License) from `crates/android-terminal/assets/fonts`.
+The UI uses JetBrains Mono Nerd Font (SIL Open Font License) from `crates/android-dashboard/assets/fonts`.

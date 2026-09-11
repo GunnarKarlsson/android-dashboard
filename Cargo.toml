@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/adb-client", "crates/ai-insight", "crates/android-terminal"]
+members = ["crates/adb-client", "crates/ai-insight", "crates/android-dashboard"]
 resolver = "2"
 
 [workspace.package]

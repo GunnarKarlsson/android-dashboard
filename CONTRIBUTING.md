@@ -22,7 +22,7 @@ See the [README](README.md) for prerequisites (Rust toolchain, `adb` on `PATH`) 
 
 ```bash
 cargo build
-cargo run -p android-terminal
+cargo run -p android-dashboard
 ```
 
 The workspace uses the toolchain in `rust-toolchain.toml` (currently Rust 1.88.0 with `clippy`, `rustfmt`, and `rust-analyzer`).
@@ -63,7 +63,7 @@ Fix formatting with `cargo fmt --all` if the fmt check fails. Do not submit with
 
 - Prefer small, focused PRs that are easy to review. Small PRs are usually reviewed within a few days; larger ones may take longer.
 - Describe **what** changed and **why** in the PR body. Link related issues when applicable.
-- Match existing code style and crate boundaries (`adb-client`, `ai-insight`, `android-terminal`).
+- Match existing code style and crate boundaries (`adb-client`, `ai-insight`, `android-dashboard`).
 - Do not commit secrets — for example API keys, `insight.json` with credentials, or machine-specific paths.
 - Ensure CI checks pass on the tip of your branch.
 

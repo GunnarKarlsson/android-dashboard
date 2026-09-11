@@ -57,7 +57,7 @@ fn panes_are_complete(tree: &Tree<PanelId>) -> bool {
 pub(crate) fn layout_path() -> Option<PathBuf> {
     Some(
         dirs::config_dir()?
-            .join("android-terminal")
+            .join("android-dashboard")
             .join("layout.json"),
     )
 }
@@ -192,7 +192,7 @@ mod tests {
     fn temp_layout_path() -> PathBuf {
         let n = TEMP_SEQ.fetch_add(1, Ordering::Relaxed);
         std::env::temp_dir().join(format!(
-            "android-terminal-layout-test-{}-{n}.json",
+            "android-dashboard-layout-test-{}-{n}.json",
             std::process::id()
         ))
     }

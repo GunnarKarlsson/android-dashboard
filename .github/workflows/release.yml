@@ -10,7 +10,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  BIN: android-terminal
+  BIN: android-dashboard
 
 jobs:
   build:
@@ -35,13 +35,13 @@ jobs:
         run: |
           tag="${GITHUB_REF_NAME#v}"
           crate="$(cargo metadata --no-deps --format-version 1 \
-            | jq -r '.packages[] | select(.name=="android-terminal") | .version')"
+            | jq -r '.packages[] | select(.name=="android-dashboard") | .version')"
           test "$crate" = "$tag"
 
       - uses: Swatinem/rust-cache@v2
 
       - name: Build
-        run: cargo build --release --locked -p android-terminal --target ${{ matrix.target }}
+        run: cargo build --release --locked -p android-dashboard --target ${{ matrix.target }}
 
       - name: Check binary
         run: file "target/${{ matrix.target }}/release/${BIN}" | grep -q 'Mach-O'

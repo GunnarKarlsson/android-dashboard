@@ -38,7 +38,7 @@ impl InsightFile {
 pub(crate) fn insight_path() -> Option<PathBuf> {
     Some(
         dirs::config_dir()?
-            .join("android-terminal")
+            .join("android-dashboard")
             .join("insight.json"),
     )
 }
@@ -129,7 +129,7 @@ mod tests {
     fn temp_path() -> PathBuf {
         let n = TEMP_SEQ.fetch_add(1, Ordering::Relaxed);
         std::env::temp_dir().join(format!(
-            "android-terminal-insight-test-{}-{n}.json",
+            "android-dashboard-insight-test-{}-{n}.json",
             std::process::id()
         ))
     }
