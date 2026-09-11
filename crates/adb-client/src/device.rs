@@ -1,6 +1,6 @@
 use std::process::Output;
 
-use crate::adb::run_adb;
+use crate::adb::get_optional_system_property;
 use crate::error::AdbError;
 
 /// Connection state reported by `adb devices`.
@@ -29,6 +29,38 @@ pub struct DeviceInfo {
     pub serial: String,
     pub model: String,
     pub state: DeviceState,
+    pub release: Option<String>,
+    pub build: Option<String>,
+}
+
+impl DeviceInfo {
+    pub(crate) fn is_online(&self) -> bool {
+        self.state == DeviceState::Device
+    }
+
+    pub(crate) fn fetch_details(&mut self) {
+        if self.is_online() {
+            if self.model.is_empty() {
+                self.model = get_optional_system_property(&self.serial, "ro.product.model")
+                    .unwrap_or_default();
+            }
+            self.release = get_optional_system_property(&self.serial, "ro.build.version.release");
+            self.build = get_optional_system_property(&self.serial, "ro.build.display.id");
+        }
+        if self.model.is_empty() {
+            self.model = self.serial.clone();
+        }
+    }
+
+    pub fn display_details(&self) -> String {
+        let serial = &self.serial;
+        let build = self.build.as_deref().unwrap_or_default();
+
+        match self.release.as_deref() {
+            Some(release) => format!("{serial} (Android {release}, {build})"),
+            None => format!("{serial} ({build})"),
+        }
+    }
 }
 
 pub(crate) fn devices_from_output(output: &Output) -> Result<Vec<DeviceInfo>, AdbError> {
@@ -41,33 +73,14 @@ pub(crate) fn devices_from_output(output: &Output) -> Result<Vec<DeviceInfo>, Ad
             continue;
         }
 
-        let mut device = parse_device_line(line).ok_or_else(|| {
+        let device = parse_device_line(line).ok_or_else(|| {
             AdbError::ParseFailed(format!("failed to parse adb devices line: {line}"))
         })?;
-
-        if device.model.is_empty() {
-            device.model = if device.state == DeviceState::Device {
-                get_device_model(&device.serial)?.unwrap_or_else(|| device.serial.clone())
-            } else {
-                device.serial.clone()
-            };
-        }
 
         devices.push(device);
     }
 
     Ok(devices)
-}
-
-fn get_device_model(serial: &str) -> Result<Option<String>, AdbError> {
-    let output = run_adb(&["-s", serial, "shell", "getprop", "ro.product.model"])?;
-    let model = String::from_utf8_lossy(&output.stdout).trim().to_string();
-
-    if model.is_empty() {
-        Ok(None)
-    } else {
-        Ok(Some(model))
-    }
 }
 
 fn parse_device_line(line: &str) -> Option<DeviceInfo> {
@@ -87,6 +100,8 @@ fn parse_device_line(line: &str) -> Option<DeviceInfo> {
         serial,
         model,
         state,
+        build: None,
+        release: None,
     })
 }
 
@@ -145,5 +160,17 @@ mod tests {
         assert_eq!(devices.len(), 1);
         assert_eq!(devices[0].serial, "emulator-5554");
         assert_eq!(devices[0].model, "sdk_gphone64_arm64");
+        assert_eq!(devices[0].release, None);
+        assert_eq!(devices[0].build, None);
+    }
+
+    #[test]
+    fn details_falls_model_back_to_serial_without_adb() {
+        let mut device = parse_device_line("R58M123ABC offline").unwrap();
+        device.fetch_details();
+
+        assert_eq!(device.model, "R58M123ABC");
+        assert_eq!(device.release, None);
+        assert_eq!(device.build, None);
     }
 }

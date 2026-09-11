@@ -68,7 +68,7 @@ fn show_devices_body(ui: &mut egui::Ui, roster: &DeviceRoster) -> Option<String>
                     let device = &roster.devices[index];
                     let is_selected =
                         roster.selected_serial.as_deref() == Some(device.serial.as_str());
-                    let label = format!("{}\n{}", device.model, device.serial);
+                    let label = format!("{}\n{}", device.model, device.display_details());
 
                     if device.state == DeviceState::Device {
                         let color = if is_selected {
