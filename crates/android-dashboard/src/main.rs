@@ -101,7 +101,6 @@ impl eframe::App for TerminalApp {
 
 fn main() -> eframe::Result<()> {
     init_tracing();
-    tracing::info!("android-dashboard started");
 
     let adb_error = Adb::check_available().err().map(|e| e.to_string());
 

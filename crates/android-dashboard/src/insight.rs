@@ -182,7 +182,6 @@ impl InsightController {
                     }
                     self.state.status = InsightStatus::Idle;
                     self.state.ever_succeeded = true;
-                    tracing::info!(stored = self.state.replies.len(), "insight reply stored");
                     updated = true;
                 }
                 InsightUpdate::Error { .. } => {
@@ -214,7 +213,6 @@ impl InsightController {
             self.state.generation,
             serial.to_string(),
         ));
-        tracing::info!(generation = self.state.generation, "insight request queued");
     }
 }
 

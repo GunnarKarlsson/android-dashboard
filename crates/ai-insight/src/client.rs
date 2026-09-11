@@ -25,11 +25,11 @@ pub enum InsightError {
 
 /// POSTs the snapshot to the configured Chat Completions endpoint and returns the assistant text.
 ///
-/// Logs generation, digest key, HTTP status, and byte lengths. Does not log the API key or bodies at info.
+/// Does not log the API key or request/response bodies at info.
 pub fn complete(
     config: &InsightConfig,
     snapshot: &InsightSnapshot,
-    generation: u64,
+    _generation: u64,
 ) -> Result<String, InsightError> {
     if !config.is_configured() {
         tracing::warn!("insight request skipped: AI provider is not configured");
@@ -39,14 +39,6 @@ pub fn complete(
     let snapshot_json = snapshot
         .to_pretty_json()
         .map_err(|err| InsightError::Transport(err.to_string()))?;
-    tracing::info!(
-        generation,
-        host = %config.host_for_log(),
-        model = %config.model,
-        digest = %snapshot.digest_key(),
-        bytes = snapshot_json.len(),
-        "sending insight request"
-    );
 
     let url = config.completions_url();
     let system = format!(
@@ -82,16 +74,9 @@ Max {MAX_REPLY_WORDS} words. No preamble."
 
     match result {
         Ok(response) => {
-            let status = response.status();
             let text = response
                 .into_string()
                 .map_err(|err| InsightError::Transport(err.to_string()))?;
-            tracing::info!(
-                generation,
-                status,
-                bytes = text.len(),
-                "received insight response"
-            );
             extract_assistant_text(&text)
         }
         Err(ureq::Error::Status(status, response)) => {
