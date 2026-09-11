@@ -39,7 +39,7 @@ cargo run -p android-dashboard
 
 macOS binaries are published on the [Releases](https://github.com/GunnarKarlsson/android-dashboard/releases) page (`aarch64-apple-darwin` and `x86_64-apple-darwin` tarballs). They are ad-hoc signed, not notarized.
 
-After download, macOS may block the binary (Gatekeeper / quarantine). In Finder, right-click the binary → **Open**. Or clear quarantine and run from a terminal:
+After download, macOS may block the binary (Gatekeeper / quarantine). In Finder, **right-click** the binary → **Open**. Or clear quarantine and run from a terminal:
 
 ```bash
 xattr -d com.apple.quarantine android-dashboard
