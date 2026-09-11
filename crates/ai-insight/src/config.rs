@@ -1,7 +1,7 @@
-//! Chat Completions settings from the process environment.
+//! Chat Completions endpoint, model, and API key.
 
 /// Chat Completions endpoint, model, and API key for one request.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct InsightConfig {
     pub api_key: String,
     pub base_url: String,
@@ -9,17 +9,6 @@ pub struct InsightConfig {
 }
 
 impl InsightConfig {
-    /// Reads `AI_PROVIDER_API_KEY`, `AI_PROVIDER_BASE_URL`, and `AI_PROVIDER_MODEL` from the environment.
-    ///
-    /// Missing variables become empty strings. Insight runs only when all three are non-blank.
-    pub fn from_env() -> Self {
-        Self {
-            api_key: std::env::var("AI_PROVIDER_API_KEY").unwrap_or_default(),
-            base_url: std::env::var("AI_PROVIDER_BASE_URL").unwrap_or_default(),
-            model: std::env::var("AI_PROVIDER_MODEL").unwrap_or_default(),
-        }
-    }
-
     /// Returns true when `api_key` is non-empty after trim.
     pub fn has_api_key(&self) -> bool {
         !self.api_key.trim().is_empty()

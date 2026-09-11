@@ -49,9 +49,15 @@ pub fn canvas_margin_frame() -> egui::Frame {
 }
 
 /// macOS title strip: same fill as the panel canvas; traffic lights stay native.
-/// Returns true when the user chose Reset layout.
 #[cfg(target_os = "macos")]
-pub fn title_bar(ctx: &Context, frame: &eframe::Frame) -> bool {
+pub struct TitleBarAction {
+    pub reset_layout: bool,
+    pub open_ai_settings: bool,
+}
+
+/// macOS title strip: same fill as the panel canvas; traffic lights stay native.
+#[cfg(target_os = "macos")]
+pub fn title_bar(ctx: &Context, frame: &eframe::Frame) -> TitleBarAction {
     let over_traffic_lights = ctx.input(|i| {
         i.pointer.latest_pos().is_some_and(|pos| {
             pos.x < theme::TRAFFIC_LIGHTS_WIDTH && pos.y >= 0.0 && pos.y < theme::TITLE_BAR_HEIGHT
@@ -59,7 +65,10 @@ pub fn title_bar(ctx: &Context, frame: &eframe::Frame) -> bool {
     });
     crate::macos::sync_traffic_lights(frame, theme::TITLE_BAR_HEIGHT, over_traffic_lights);
 
-    let mut reset_layout = false;
+    let mut action = TitleBarAction {
+        reset_layout: false,
+        open_ai_settings: false,
+    };
     const SETTINGS_ICON: f32 = 16.0;
     const SETTINGS_STRIP: f32 = 40.0;
 
@@ -72,7 +81,7 @@ pub fn title_bar(ctx: &Context, frame: &eframe::Frame) -> bool {
             ui.painter().text(
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
-                "Android Terminal",
+                "Android Debug Dashboard",
                 FontId::new(theme::FONT_BODY, FontFamily::Proportional),
                 colors::OFF_WHITE,
             );
@@ -97,17 +106,17 @@ pub fn title_bar(ctx: &Context, frame: &eframe::Frame) -> bool {
                         ui,
                         egui::Button::image(image).frame(false),
                         |ui| {
-                            let clicked = ui.button("Reset layout").clicked();
-                            if clicked {
+                            if ui.button("Configure AI Provider").clicked() {
+                                action.open_ai_settings = true;
                                 ui.close_menu();
                             }
-                            clicked
+                            if ui.button("Reset Dashboard Layout").clicked() {
+                                action.reset_layout = true;
+                                ui.close_menu();
+                            }
                         },
                     );
-                    menu.response.on_hover_text("Layout");
-                    if menu.inner == Some(true) {
-                        reset_layout = true;
-                    }
+                    menu.response.on_hover_text("Settings");
                 });
             });
 
@@ -128,7 +137,7 @@ pub fn title_bar(ctx: &Context, frame: &eframe::Frame) -> bool {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!maximized));
             }
         });
-    reset_layout
+    action
 }
 
 fn panel_frame(ui: &Ui) -> egui::Frame {

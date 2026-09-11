@@ -162,7 +162,7 @@ pub fn create_default_tree() -> Tree<PanelId> {
         &[(logcat_errors, LOGCAT_SHARE), (insight, INSIGHT_SHARE)],
     );
 
-    Tree::new("android_terminal_tiles", root, tiles)
+    Tree::new("android_dashboard_tiles", root, tiles)
 }
 
 fn set_linear_shares(

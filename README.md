@@ -1,4 +1,4 @@
-# Android Debug Dashboard
+# <img src="crates/android-dashboard/assets/icons/app.png" width="32" height="32" align="absmiddle" alt="" />&nbsp; Android Debug Dashboard
 
 ![Rust](https://img.shields.io/badge/rust-1.88.0-orange?logo=rust)
 ![macOS](https://img.shields.io/badge/platform-macOS-black?logo=apple)
@@ -9,7 +9,7 @@
 A dashboard written in Rust for debugging Android apps on macOS. 
 Shows essential Android debug data from hardware devices and emulator in a single window, together with LLM-generated insights into the error log.
 
-![Android Terminal dashboard](screenshot1.png)
+![Android Dashboard dashboard](screenshot1.png)
 
 ## Prerequisites
 
@@ -32,8 +32,21 @@ cargo build
 ## Run the Dashboard
 
 ```bash
-cargo run -p android-terminal
+cargo run -p android-dashboard
 ```
+
+## Install from a release
+
+macOS binaries are published on the [Releases](https://github.com/GunnarKarlsson/android-dashboard/releases) page (`aarch64-apple-darwin` and `x86_64-apple-darwin` tarballs). They are ad-hoc signed, not notarized.
+
+After download, macOS may block the binary (Gatekeeper / quarantine). In Finder, **right-click** the binary → **Open**. Or clear quarantine and run from a terminal:
+
+```bash
+xattr -d com.apple.quarantine android-dashboard
+./android-dashboard
+```
+
+You'll need `adb` on your `PATH` and a device running to see data.
 
 ## Project layout
 
@@ -41,7 +54,7 @@ cargo run -p android-terminal
 crates/
   adb-client/       # adb command wrappers and parsing
   ai-insight/       # error clustering and Chat Completions client
-  android-terminal/ # GUI application
+  android-dashboard/ # GUI application
 ```
 
 ## How to Use the Dashboard
@@ -73,40 +86,35 @@ When the mix of errors changes, the app posts again, with a cooldown.
 
 The model replies with a one-line verdict (`HEALTHY` / `DEGRADING` / `FAILING`), top issues, and a recommendation for what to do next. That text shows in the **Insight** panel.
 
-No request is sent until `AI_PROVIDER_API_KEY`, `AI_PROVIDER_BASE_URL`, and `AI_PROVIDER_MODEL` are set.
+No request is sent until base URL, model, and API key are set via **Configure AI Provider** (cog menu ⚙️).
 
 ## Configuration
 
-The app requires configuration only in the case you want to see AI insights.
+Insight is optional. Configure the provider from the macOS cog menu: **Configure AI Provider**. Settings are stored as `insight.json` next to `layout.json` under the OS config directory (`dirs::config_dir()/android-dashboard/`). On macOS that is typically `~/Library/Application Support/android-dashboard/insight.json`.
 
-### Configure AI provider - Details
+| Field | Required |
+| --- | --- |
+| Base URL | yes |
+| Model | yes |
+| API key | yes |
 
-Settings are read from the process environment. 
-On startup the app also loads `crates/android-terminal/.env` if that file exists.
-
-| Variable | Required | Default |
-| --- | --- | --- |
-| `AI_PROVIDER_API_KEY` | yes | (empty — Insight is skipped) |
-| `AI_PROVIDER_BASE_URL` | yes | (empty — Insight is skipped) |
-| `AI_PROVIDER_MODEL` | yes | (empty — Insight is skipped) |
-
-Example `.env`:
+Example values:
 
 ```
-AI_PROVIDER_API_KEY=sk-...
-AI_PROVIDER_BASE_URL=https://api.deepseek.com
-AI_PROVIDER_MODEL=deepseek-v4-pro
+Base URL: https://api.deepseek.com
+Model: deepseek-v4-pro
+API key: sk-...
 ```
 
-The provider should accept [OpenAI Chat Completions](https://platform.openai.com/docs/api-reference/chat/create): `POST {AI_PROVIDER_BASE_URL}/chat/completions` (include `/v1` in the base URL if that is part of the path):
+The provider should accept [OpenAI Chat Completions](https://platform.openai.com/docs/api-reference/chat/create): `POST {base_url}/chat/completions` (include `/v1` in the base URL if that is part of the path):
 
 ```http
 POST /chat/completions
-Authorization: Bearer ${AI_PROVIDER_API_KEY}
+Authorization: Bearer <api_key>
 Content-Type: application/json
 
 {
-  "model": "${AI_PROVIDER_MODEL}",
+  "model": "<model>",
   "temperature": 0.2,
   "max_tokens": 350,
   "stream": false,
@@ -134,6 +142,12 @@ Expected response format from API:
   ]
 }
 ```
+
+## Layout Persistence
+
+Panel layout is saved as `layout.json` under the OS config directory (`dirs::config_dir()/android-dashboard/`). On macOS that is typically `~/Library/Application Support/android-dashboard/layout.json`.
+
+If the file is missing or invalid, the app uses a default three-column layout. **Reset Dashboard Layout** in the cog menu restores that default and overwrites the file.
 
 ## Commands Used by App
 
@@ -182,4 +196,4 @@ Closing the window kills the `adb logcat` child and signals pollers to stop. An 
 
 Copyright (c) 2026 Gunnar Karlsson. Licensed under the [MIT License](LICENSE).
 
-The UI uses JetBrains Mono Nerd Font (SIL Open Font License) from `crates/android-terminal/assets/fonts`.
+The UI uses JetBrains Mono Nerd Font (SIL Open Font License) from `crates/android-dashboard/assets/fonts`. Panel and app icons include Font Awesome Free icons (CC BY 4.0).
