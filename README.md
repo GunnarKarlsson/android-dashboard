@@ -1,4 +1,4 @@
-# Android Debug Dashboard
+# <img src="crates/android-dashboard/assets/icons/app.png" width="32" height="32" align="absmiddle" alt="" />&nbsp; Android Debug Dashboard
 
 ![Rust](https://img.shields.io/badge/rust-1.88.0-orange?logo=rust)
 ![macOS](https://img.shields.io/badge/platform-macOS-black?logo=apple)
