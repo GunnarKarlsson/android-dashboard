@@ -35,6 +35,19 @@ cargo build
 cargo run -p android-terminal
 ```
 
+## Install from a release
+
+macOS binaries are published on the [Releases](https://github.com/GunnarKarlsson/android-dashboard/releases) page (`aarch64-apple-darwin` and `x86_64-apple-darwin` tarballs). They are ad-hoc signed, not notarized.
+
+After download, macOS may block the binary (Gatekeeper / quarantine). In Finder, right-click the binary → **Open**. Or clear quarantine and run from a terminal:
+
+```bash
+xattr -d com.apple.quarantine android-terminal
+./android-terminal
+```
+
+You'll need `adb` on your `PATH` and a device running to see data.
+
 ## Project layout
 
 ```
