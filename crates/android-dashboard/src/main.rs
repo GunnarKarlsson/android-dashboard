@@ -104,9 +104,13 @@ fn main() -> eframe::Result<()> {
 
     let adb_error = Adb::check_available().err().map(|e| e.to_string());
 
+    let icon = eframe::icon_data::from_png_bytes(include_bytes!("../assets/icons/app.png"))
+        .expect("app icon");
+
     let mut viewport = eframe::egui::ViewportBuilder::default()
         .with_inner_size(theme::DEFAULT_WINDOW_SIZE)
-        .with_title("Android Debug Dashboard");
+        .with_title("Android Debug Dashboard")
+        .with_icon(icon);
     #[cfg(target_os = "macos")]
     {
         // Content draws under the traffic lights; we paint a dark grey title strip.

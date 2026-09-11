@@ -196,4 +196,4 @@ Closing the window kills the `adb logcat` child and signals pollers to stop. An 
 
 Copyright (c) 2026 Gunnar Karlsson. Licensed under the [MIT License](LICENSE).
 
-The UI uses JetBrains Mono Nerd Font (SIL Open Font License) from `crates/android-dashboard/assets/fonts`.
+The UI uses JetBrains Mono Nerd Font (SIL Open Font License) from `crates/android-dashboard/assets/fonts`. Panel and app icons include Font Awesome Free icons (CC BY 4.0).
