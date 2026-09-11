@@ -28,7 +28,7 @@ pub mod colors {
     /// Muted footer status text inside panel cards.
     pub const FOOTER_TEXT: Color32 = Color32::from_rgb(140, 146, 156);
     /// Placeholder hint in empty text fields.
-    pub const PLACEHOLDER_TEXT: Color32 = Color32::from_rgb(96, 102, 112);
+    pub const PLACEHOLDER_TEXT: Color32 = Color32::from_rgb(80, 86, 96);
     /// Resize handle highlight (gap stays empty when idle).
     pub const PANEL_SPLITTER_HOVER: Color32 = Color32::from_rgb(96, 102, 112);
     /// Header rule inside a panel card.

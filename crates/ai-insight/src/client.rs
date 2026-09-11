@@ -15,8 +15,8 @@ const MAX_REPLY_WORDS: u32 = 120;
 pub enum InsightError {
     #[error("AI provider base URL, model, and API key must be set")]
     NotConfigured,
-    #[error("HTTP {status}: {body}")]
-    Http { status: u16, body: String },
+    #[error("HTTP {status}")]
+    Http { status: u16 },
     #[error("{0}")]
     Transport(String),
     #[error("empty model reply")]
@@ -79,13 +79,8 @@ Max {MAX_REPLY_WORDS} words. No preamble."
                 .map_err(|err| InsightError::Transport(err.to_string()))?;
             extract_assistant_text(&text)
         }
-        Err(ureq::Error::Status(status, response)) => {
-            let text = response.into_string().unwrap_or_default();
-            Err(InsightError::Http { status, body: text })
-        }
-        Err(err) => {
-            Err(InsightError::Transport(err.to_string()))
-        }
+        Err(ureq::Error::Status(status, _response)) => Err(InsightError::Http { status }),
+        Err(err) => Err(InsightError::Transport(err.to_string())),
     }
 }
 

@@ -76,7 +76,10 @@ pub fn show(ctx: &egui::Context, dialog: &mut SettingsDialog) -> Option<Settings
                     ui.add(
                         egui::TextEdit::singleline(&mut dialog.base_url)
                             .desired_width(280.0)
-                            .hint_text("https://api.example.com"),
+                            .hint_text(
+                                egui::RichText::new("https://api.example.com")
+                                    .color(colors::PLACEHOLDER_TEXT),
+                            ),
                     );
                     ui.end_row();
 
@@ -84,7 +87,9 @@ pub fn show(ctx: &egui::Context, dialog: &mut SettingsDialog) -> Option<Settings
                     ui.add(
                         egui::TextEdit::singleline(&mut dialog.model)
                             .desired_width(280.0)
-                            .hint_text("model-name"),
+                            .hint_text(
+                                egui::RichText::new("model-name").color(colors::PLACEHOLDER_TEXT),
+                            ),
                     );
                     ui.end_row();
 
@@ -93,7 +98,9 @@ pub fn show(ctx: &egui::Context, dialog: &mut SettingsDialog) -> Option<Settings
                         egui::TextEdit::singleline(&mut dialog.api_key)
                             .desired_width(280.0)
                             .password(true)
-                            .hint_text("sk-…"),
+                            .hint_text(
+                                egui::RichText::new("sk-…").color(colors::PLACEHOLDER_TEXT),
+                            ),
                     );
                     ui.end_row();
                 });

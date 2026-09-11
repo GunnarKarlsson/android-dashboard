@@ -79,7 +79,7 @@ fn run_insight(
 /// Builds a short panel message for a failed insight request.
 fn user_facing_error(err: &InsightError) -> String {
     match err {
-        InsightError::Http { status, .. } => format!(
+        InsightError::Http { status } => format!(
             "The app received a {status} error from the ai provider. Check your configuration in the settings panel"
         ),
         InsightError::NotConfigured => {
