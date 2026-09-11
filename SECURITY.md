@@ -18,4 +18,4 @@ We aim to acknowledge reports promptly, typically within a few days. After triag
 
 ## Scope notes
 
-This project shells out to `adb` and may send redacted log summaries to a user-configured AI provider. Reports related to secret leakage, unsafe handling of credentials (for example API keys in `insight.json`), or unexpected local command execution are especially welcome. Out of scope: third-party AI provider outages, device OEM bugs, and issues in `adb` itself.
+This project shells out to `adb` and may send redacted log summaries to a user-configured AI provider. Reports related to secret leakage, unsafe handling of credentials, or unexpected local command execution are especially welcome. Out of scope: third-party AI provider outages, device OEM bugs, and issues in `adb` itself.
