@@ -73,7 +73,7 @@ When the mix of errors changes, the app posts again, with a cooldown.
 
 The model replies with a one-line verdict (`HEALTHY` / `DEGRADING` / `FAILING`), top issues, and a recommendation for what to do next. That text shows in the **Insight** panel.
 
-No request is sent until base URL, model, and API key are set via **Configure AI Provider** (cog menu).
+No request is sent until base URL, model, and API key are set via **Configure AI Provider** (cog menu ⚙️).
 
 ## Configuration
 
