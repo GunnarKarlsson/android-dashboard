@@ -26,11 +26,7 @@ impl Adb {
     /// Lists devices attached to the host via `adb devices -l`.
     pub fn list_devices() -> Result<Vec<crate::device::DeviceInfo>, AdbError> {
         let output = run_adb(&["devices", "-l"])?;
-        let result = crate::device::devices_from_output(&output);
-        if result.is_err() {
-            return result;
-        }
-        let mut devices = result?;
+        let mut devices = crate::device::devices_from_output(&output)?;
         for device in devices.iter_mut().filter(|d| d.is_online()) {
             device.fetch_details();
         }
@@ -63,15 +59,21 @@ pub(crate) fn run_adb_for_serial(serial: &str, args: &[&str]) -> Result<Output, 
 }
 
 pub(crate) fn get_system_property(serial: &str, property: &str) -> Result<String, AdbError> {
-    let result = run_adb_for_serial(serial, &["shell", "getprop", property]);
-    if result.is_err() {
-        return Err(result.err().unwrap());
-    }
-    Ok(String::from_utf8_lossy(&result?.stdout).trim().to_string())
+    let result = run_adb_for_serial(serial, &["shell", "getprop", property])?;
+    Ok(String::from_utf8_lossy(&result.stdout).trim().to_string())
 }
 
-pub(crate) fn get_system_property_or_default(serial: &str, property: &str) -> String {
-    get_system_property(serial, property).ok().unwrap_or_default()
+pub(crate) fn get_optional_system_property(serial: &str, property: &str) -> Option<String> {
+    match get_system_property(serial, property) {
+        Ok(value) => {
+            if value.is_empty() {
+                None
+            } else {
+                Some(value)
+            }
+        }
+        Err(_) => None,
+    }
 }
 
 fn map_io_error(err: io::Error) -> AdbError {

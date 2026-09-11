@@ -1,6 +1,6 @@
 use std::process::Output;
 
-use crate::adb::get_system_property_or_default;
+use crate::adb::get_optional_system_property;
 use crate::error::AdbError;
 
 /// Connection state reported by `adb devices`.
@@ -29,8 +29,8 @@ pub struct DeviceInfo {
     pub serial: String,
     pub model: String,
     pub state: DeviceState,
-    pub release: String,
-    pub build: String,
+    pub release: Option<String>,
+    pub build: Option<String>,
 }
 
 impl DeviceInfo {
@@ -41,10 +41,11 @@ impl DeviceInfo {
     pub(crate) fn fetch_details(&mut self) {
         if self.is_online() {
             if self.model.is_empty() {
-                self.model = get_system_property_or_default(&self.serial, "ro.product.model");
+                self.model = get_optional_system_property(&self.serial, "ro.product.model")
+                    .unwrap_or_default();
             }
-            self.release = get_system_property_or_default(&self.serial, "ro.build.version.release");
-            self.build = get_system_property_or_default(&self.serial, "ro.build.display.id");
+            self.release = get_optional_system_property(&self.serial, "ro.build.version.release");
+            self.build = get_optional_system_property(&self.serial, "ro.build.display.id");
         }
         if self.model.is_empty() {
             self.model = self.serial.clone();
@@ -52,10 +53,13 @@ impl DeviceInfo {
     }
 
     pub fn display_details(&self) -> String {
-        if self.release.is_empty() {
-            return format!("{})", self.build);
+        let serial = &self.serial;
+        let build = self.build.as_deref().unwrap_or_default();
+
+        match self.release.as_deref() {
+            Some(release) => format!("{serial} (Android {release}, {build})"),
+            None => format!("{serial} ({build})"),
         }
-        format!("{} (Android {}, {})", self.serial, self.release, self.build)
     }
 }
 
@@ -79,9 +83,6 @@ pub(crate) fn devices_from_output(output: &Output) -> Result<Vec<DeviceInfo>, Ad
     Ok(devices)
 }
 
-
-
-
 fn parse_device_line(line: &str) -> Option<DeviceInfo> {
     let mut parts = line.split_whitespace();
     let serial = parts.next()?.to_string();
@@ -99,8 +100,8 @@ fn parse_device_line(line: &str) -> Option<DeviceInfo> {
         serial,
         model,
         state,
-        build: "".to_string(),
-        release: "".to_string(),
+        build: None,
+        release: None,
     })
 }
 
@@ -159,8 +160,8 @@ mod tests {
         assert_eq!(devices.len(), 1);
         assert_eq!(devices[0].serial, "emulator-5554");
         assert_eq!(devices[0].model, "sdk_gphone64_arm64");
-        assert_eq!(devices[0].release, "");
-        assert_eq!(devices[0].build, "");
+        assert_eq!(devices[0].release, None);
+        assert_eq!(devices[0].build, None);
     }
 
     #[test]
@@ -169,7 +170,7 @@ mod tests {
         device.fetch_details();
 
         assert_eq!(device.model, "R58M123ABC");
-        assert_eq!(device.release, "");
-        assert_eq!(device.build, "");
+        assert_eq!(device.release, None);
+        assert_eq!(device.build, None);
     }
 }
