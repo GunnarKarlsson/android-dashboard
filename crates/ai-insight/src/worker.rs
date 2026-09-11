@@ -2,7 +2,7 @@ use std::thread;
 
 use crossbeam_channel::{Receiver, Sender};
 
-use crate::client::complete;
+use crate::client::{InsightError, complete};
 use crate::config::InsightConfig;
 use crate::reduce::InsightSnapshot;
 
@@ -70,8 +70,29 @@ fn run_insight(
             let _ = tx.send(InsightUpdate::Error {
                 generation,
                 serial,
-                message: err.to_string(),
+                message: user_facing_error(&err),
             });
+        }
+    }
+}
+
+/// Builds a short panel message for a failed insight request.
+fn user_facing_error(err: &InsightError) -> String {
+    match err {
+        InsightError::Http { status, .. } => format!(
+            "The app received a {status} error from the ai provider. Check your configuration in the settings panel"
+        ),
+        InsightError::NotConfigured => {
+            "AI provider base URL, model, and API key must be set. Check your configuration in the settings panel"
+                .to_string()
+        }
+        InsightError::EmptyReply => {
+            "The ai provider returned an empty reply. Check your configuration in the settings panel"
+                .to_string()
+        }
+        InsightError::Transport(_) => {
+            "The app could not reach the ai provider. Check your configuration in the settings panel"
+                .to_string()
         }
     }
 }

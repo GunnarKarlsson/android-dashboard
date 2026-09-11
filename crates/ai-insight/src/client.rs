@@ -81,11 +81,9 @@ Max {MAX_REPLY_WORDS} words. No preamble."
         }
         Err(ureq::Error::Status(status, response)) => {
             let text = response.into_string().unwrap_or_default();
-            tracing::error!(status, bytes = text.len(), "insight response error");
             Err(InsightError::Http { status, body: text })
         }
         Err(err) => {
-            tracing::error!(error = %err, "insight request failed");
             Err(InsightError::Transport(err.to_string()))
         }
     }

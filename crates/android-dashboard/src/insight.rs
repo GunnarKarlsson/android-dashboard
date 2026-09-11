@@ -181,11 +181,13 @@ impl InsightController {
                         self.state.replies.pop_front();
                     }
                     self.state.status = InsightStatus::Idle;
+                    self.state.last_failure = None;
                     self.state.ever_succeeded = true;
                     updated = true;
                 }
-                InsightUpdate::Error { .. } => {
+                InsightUpdate::Error { message, .. } => {
                     self.state.status = InsightStatus::RequestFailed;
+                    self.state.last_failure = Some(message);
                     if !self.state.ever_succeeded {
                         self.state.last_sent_key = None;
                         self.state.last_error_at = Some(Instant::now());
@@ -226,6 +228,8 @@ pub enum InsightStatus {
 pub struct InsightState {
     pub status: InsightStatus,
     pub replies: VecDeque<String>,
+    /// Last user-facing failure text when [`InsightStatus::RequestFailed`].
+    pub last_failure: Option<String>,
     pub(crate) last_analyze: Option<Instant>,
     pub(crate) last_error_at: Option<Instant>,
     pub(crate) last_built_error_at: Option<Instant>,
@@ -239,6 +243,7 @@ impl Default for InsightState {
         Self {
             status: InsightStatus::Idle,
             replies: VecDeque::new(),
+            last_failure: None,
             last_analyze: None,
             last_error_at: None,
             last_built_error_at: None,

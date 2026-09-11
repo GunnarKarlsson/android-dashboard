@@ -6,9 +6,9 @@ use eframe::egui::{self, Context, FontFamily, FontId, TextStyle, Ui};
 
 use crate::theme::{self, colors};
 
-/// Show an error label using the theme error color.
+/// Show an error label using the current text color (panel body color when inside [`panel_body`]).
 pub fn error_label(ui: &mut Ui, text: impl AsRef<str>) {
-    ui.colored_label(colors::ERROR, text.as_ref());
+    ui.label(text.as_ref());
 }
 
 /// Run panel body content with a dedicated text color (headers stay on the default style).

@@ -15,7 +15,9 @@ pub fn insight_panel(ui: &mut egui::Ui, insight: &InsightController, auto_scroll
         if insight.state.replies.is_empty() {
             match insight.state.status {
                 InsightStatus::RequestFailed => {
-                    ui_elements::error_label(ui, "request failed, see log");
+                    ui.label(insight.state.last_failure.as_deref().unwrap_or(
+                        "The app received an error from the ai provider. Check your configuration in the settings panel",
+                    ));
                 }
                 InsightStatus::Idle | InsightStatus::RequestSent => {
                     ui.label("...");
