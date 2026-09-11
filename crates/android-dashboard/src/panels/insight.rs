@@ -23,9 +23,7 @@ pub fn insight_panel(ui: &mut egui::Ui, insight: &InsightController, auto_scroll
                     if insight.config().is_configured() {
                         ui.label("...");
                     } else {
-                        ui.label(
-                            "To see ai insights, configure the ai provider info in Settings",
-                        );
+                        ui.label("To see ai insights, configure the ai provider info in Settings");
                     }
                 }
             }

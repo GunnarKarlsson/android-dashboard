@@ -98,9 +98,7 @@ pub fn show(ctx: &egui::Context, dialog: &mut SettingsDialog) -> Option<Settings
                         egui::TextEdit::singleline(&mut dialog.api_key)
                             .desired_width(280.0)
                             .password(true)
-                            .hint_text(
-                                egui::RichText::new("sk-…").color(colors::PLACEHOLDER_TEXT),
-                            ),
+                            .hint_text(egui::RichText::new("sk-…").color(colors::PLACEHOLDER_TEXT)),
                     );
                     ui.end_row();
                 });
