@@ -83,7 +83,7 @@ The dashboard shows the following data in widgets:
 The dashboard app submits a normalized logcat error log to a Chat Completions API of your choice, and displays the response.
 Before dispatch to the API, error and fatal logcat lines are summarized, noise-stripped and filtered to remove secret data. 
 
-When the mix of errors changes, the app posts again, with a cooldown.
+When the mix of errors changes, the app posts again, with a cooldown. Fatal and ANR lines force a refresh after a short settle (coalesced so a crash burst is one request).
 
 The model replies with a one-line verdict (`HEALTHY` / `DEGRADING` / `FAILING`), top issues, and a recommendation for what to do next. That text shows in the **Insight** panel.
 

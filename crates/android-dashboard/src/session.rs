@@ -42,6 +42,8 @@ pub struct SessionStartErrors {
 pub struct DrainOutcome {
     pub ui_changed: bool,
     pub error_accepted: bool,
+    /// Fingerprints of high-severity E/F lines accepted this drain.
+    pub high_severity_fps: Vec<String>,
 }
 
 impl DeviceSession {
@@ -155,7 +157,8 @@ impl DeviceSession {
         metrics: &mut MetricStore,
     ) -> DrainOutcome {
         let mut ui_changed = false;
-        let error_accepted = self.drain_logcat(logcat, logcat_errors, &mut ui_changed);
+        let (error_accepted, high_severity_fps) =
+            self.drain_logcat(logcat, logcat_errors, &mut ui_changed);
         ui_changed |= self.drain_ram(metrics);
         ui_changed |= self.drain_storage_gauge(metrics);
         ui_changed |= self.drain_network(metrics);
@@ -165,6 +168,7 @@ impl DeviceSession {
         DrainOutcome {
             ui_changed,
             error_accepted,
+            high_severity_fps,
         }
     }
 
@@ -177,7 +181,7 @@ impl DeviceSession {
         logcat: &mut LogcatPane,
         logcat_errors: &mut LogcatPane,
         ui_changed: &mut bool,
-    ) -> bool {
+    ) -> (bool, Vec<String>) {
         let entries = take_log_entries(self.logcat_rx.as_ref());
         let flushed_insight_error = logcat_errors.auto_update_feed
             && logcat_errors
@@ -185,13 +189,25 @@ impl DeviceSession {
                 .iter()
                 .any(|line| !line.is_adb_diagnostic());
         let accept_errors_only = logcat_errors.accept_errors_only;
-        let accepted_entry = entries.iter().any(|entry| {
-            !entry.is_adb_diagnostic() && (!accept_errors_only || entry.is_error_level())
-        });
+        let mut high_severity_fps = Vec::new();
+        let mut accepted_entry = false;
+        for entry in &entries {
+            if entry.is_adb_diagnostic() {
+                continue;
+            }
+            if accept_errors_only && !entry.is_error_level() {
+                continue;
+            }
+            accepted_entry = true;
+            if ai_insight::is_stack_head_message(entry.level, &entry.message) {
+                high_severity_fps
+                    .push(ai_insight::generate_fingerprint(&entry.tag, &entry.message));
+            }
+        }
         let updated_all = ingest_log_entries(logcat, &entries);
         let updated_errors = ingest_log_entries(logcat_errors, &entries);
         *ui_changed |= updated_all || updated_errors;
-        flushed_insight_error || accepted_entry
+        (flushed_insight_error || accepted_entry, high_severity_fps)
     }
 
     fn drain_network(&mut self, metrics: &mut MetricStore) -> bool {

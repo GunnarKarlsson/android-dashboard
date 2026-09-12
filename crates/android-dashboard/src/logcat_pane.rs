@@ -141,6 +141,7 @@ pub struct CachedLogLine {
     pub level: char,
     pub tag: String,
     pub message: String,
+    pub pid: u32,
     pub received_at: Instant,
 }
 
@@ -152,6 +153,7 @@ impl CachedLogLine {
             level: entry.level,
             tag: entry.tag.clone(),
             message: entry.message.clone(),
+            pid: entry.pid,
             received_at: Instant::now(),
         }
     }
@@ -162,27 +164,8 @@ impl CachedLogLine {
     }
 
     /// Returns true when the line looks like a fatal, ANR, panic, or native crash.
-    ///
-    /// Matches Fatal level; tags `AndroidRuntime`, `DEBUG`, or `libc`; or message substrings
-    /// `FATAL EXCEPTION`, `ANR in`, `Fatal signal`, `tombstone`, `CheckJNI`, or `panic`
-    /// (ASCII case-insensitive).
     pub fn is_crash_or_panic(&self) -> bool {
-        if self.level == 'F' {
-            return true;
-        }
-        if matches!(self.tag.as_str(), "AndroidRuntime" | "DEBUG" | "libc") {
-            return true;
-        }
-        let message = self.message.to_ascii_lowercase();
-        const NEEDLES: &[&str] = &[
-            "fatal exception",
-            "anr in",
-            "fatal signal",
-            "tombstone",
-            "checkjni",
-            "panic",
-        ];
-        NEEDLES.iter().any(|needle| message.contains(needle))
+        ai_insight::is_high_severity(self.level, &self.tag, &self.message)
     }
 
     /// Builds an `InsightLine` from this cached log line.
@@ -192,6 +175,7 @@ impl CachedLogLine {
             level: self.level,
             tag: self.tag.clone(),
             message: self.message.clone(),
+            pid: self.pid,
         }
     }
 

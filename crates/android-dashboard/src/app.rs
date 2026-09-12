@@ -113,6 +113,9 @@ impl App {
                 .drain_into(&mut self.logcat, &mut self.logcat_errors, &mut self.metrics);
         if outcome.error_accepted {
             self.insight.note_error();
+            if !outcome.high_severity_fps.is_empty() {
+                self.insight.note_high_severity(outcome.high_severity_fps);
+            }
         }
         if outcome.ui_changed {
             needs_repaint = true;

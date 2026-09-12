@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
 use ai_insight::{
@@ -8,8 +8,8 @@ use ai_insight::{
 use crossbeam_channel::Receiver;
 
 const MAX_INSIGHTS: usize = 100;
-const INSIGHT_SETTLE: Duration = Duration::from_secs(5);
-const INSIGHT_COOLDOWN: Duration = Duration::from_secs(30);
+const INSIGHT_SETTLE: Duration = Duration::from_secs(3);
+const INSIGHT_COOLDOWN: Duration = Duration::from_secs(15);
 
 pub struct InsightController {
     pub auto_update_feed: bool,
@@ -58,6 +58,13 @@ impl InsightController {
         self.state.last_error_at = Some(Instant::now());
     }
 
+    /// Adds high-severity fingerprints for a later forced insight after settle.
+    ///
+    /// Multiple fps in one burst coalesce: force fires once after quiet settle.
+    pub(crate) fn note_high_severity(&mut self, fps: impl IntoIterator<Item = String>) {
+        self.state.pending_high_fps.extend(fps);
+    }
+
     /// Builds a snapshot when settle/cooldown/digest can send, then queues the worker.
     /// Returns true if a request started.
     pub(crate) fn maybe_request(
@@ -79,8 +86,9 @@ impl InsightController {
         }
 
         let snapshot = build_snapshot(lines, LevelMask::Error, model, serial, now);
-        self.state.last_built_error_at = self.state.last_error_at;
         if !self.should_send(&snapshot, now) {
+            // Drop duplicate high fps inside cooldown so ticks do not rebuild forever.
+            self.suppress_duplicate_pending_high(now);
             return false;
         }
 
@@ -90,6 +98,10 @@ impl InsightController {
 
     /// Returns whether clustering is worth doing at `now`.
     fn should_consider(&self, now: Instant) -> bool {
+        // Settled pending high severity: evaluate even if the digest ring looks unchanged.
+        if !self.state.pending_high_fps.is_empty() && self.settled(now) {
+            return true;
+        }
         match self.state.last_sent_key.as_deref() {
             None => self.settled(now),
             Some(_) => {
@@ -118,6 +130,38 @@ impl InsightController {
         self.state.last_error_at != self.state.last_built_error_at
     }
 
+    /// True when pending high fps should force a send after settle.
+    ///
+    /// New fingerprints force even inside cooldown; the same set only re-arms after cooldown.
+    fn should_force_high(&self, now: Instant) -> bool {
+        if self.state.pending_high_fps.is_empty() || !self.settled(now) {
+            return false;
+        }
+        self.pending_has_unsent_high() || self.cooled(now)
+    }
+
+    fn pending_has_unsent_high(&self) -> bool {
+        self.state
+            .pending_high_fps
+            .iter()
+            .any(|fp| !self.state.last_sent_high_fps.contains(fp))
+    }
+
+    /// Clears pending high fps that cannot force yet (duplicates inside cooldown).
+    fn suppress_duplicate_pending_high(&mut self, now: Instant) {
+        if self.state.pending_high_fps.is_empty() {
+            return;
+        }
+        if self.should_force_high(now) {
+            return;
+        }
+        if !self.settled(now) {
+            return;
+        }
+        self.state.pending_high_fps.clear();
+        self.state.last_built_error_at = self.state.last_error_at;
+    }
+
     /// Returns whether settle, cooldown, digest change, and request status allow sending
     /// `snapshot` at `now`.
     fn should_send(&self, snapshot: &InsightSnapshot, now: Instant) -> bool {
@@ -127,6 +171,12 @@ impl InsightController {
         if snapshot.clusters.is_empty() {
             return false;
         }
+
+        // Force lane: fatal/ANR pending fps after settle (additive to digest rules below).
+        if self.should_force_high(now) {
+            return true;
+        }
+
         let key = snapshot.digest_key();
 
         match self.state.last_sent_key.as_deref() {
@@ -208,6 +258,11 @@ impl InsightController {
         self.state.status = InsightStatus::RequestSent;
         self.state.last_analyze = Some(now);
         self.state.last_sent_key = Some(key);
+        // Record high fps that armed this send so the same crash does not force again until cooldown.
+        self.state
+            .last_sent_high_fps
+            .extend(self.state.pending_high_fps.drain());
+        self.state.last_built_error_at = self.state.last_error_at;
         self.serial = Some(serial.to_string());
         self.rx = Some(spawn_insight(
             self.config.clone(),
@@ -234,6 +289,10 @@ pub struct InsightState {
     pub(crate) last_error_at: Option<Instant>,
     pub(crate) last_built_error_at: Option<Instant>,
     pub(crate) last_sent_key: Option<String>,
+    /// High-severity fingerprints waiting for settle before a forced refresh.
+    pub(crate) pending_high_fps: HashSet<String>,
+    /// High-severity fingerprints included in a prior successful force/queue.
+    pub(crate) last_sent_high_fps: HashSet<String>,
     pub(crate) ever_succeeded: bool,
     pub(crate) generation: u64,
 }
@@ -248,6 +307,8 @@ impl Default for InsightState {
             last_error_at: None,
             last_built_error_at: None,
             last_sent_key: None,
+            pending_high_fps: HashSet::new(),
+            last_sent_high_fps: HashSet::new(),
             ever_succeeded: false,
             generation: 0,
         }
@@ -257,6 +318,7 @@ impl Default for InsightState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ai_insight::generate_fingerprint;
 
     fn error_snapshot(now: Instant) -> InsightSnapshot {
         build_snapshot(
@@ -265,12 +327,33 @@ mod tests {
                 level: 'E',
                 tag: "Foo".to_string(),
                 message: "boom".to_string(),
+                pid: 1,
             }],
             LevelMask::Error,
             "Pixel",
             "serial",
             now,
         )
+    }
+
+    fn fatal_snapshot(now: Instant) -> InsightSnapshot {
+        build_snapshot(
+            [InsightLine {
+                received_at: now,
+                level: 'E',
+                tag: "AndroidRuntime".to_string(),
+                message: "FATAL EXCEPTION: main".to_string(),
+                pid: 1,
+            }],
+            LevelMask::Error,
+            "Pixel",
+            "serial",
+            now,
+        )
+    }
+
+    fn fatal_fp() -> String {
+        generate_fingerprint("AndroidRuntime", "FATAL EXCEPTION: main")
     }
 
     #[test]
@@ -371,5 +454,61 @@ mod tests {
         controller.state.last_error_at = Some(at);
         controller.state.last_built_error_at = Some(at);
         assert!(controller.should_consider(now));
+    }
+
+    #[test]
+    fn force_fatal_after_settle_inside_cooldown() {
+        let now = Instant::now();
+        let snapshot = fatal_snapshot(now);
+        let mut controller = InsightController::default();
+        controller.state.last_sent_key = Some("other".into());
+        controller.state.last_analyze = Some(now);
+        controller.state.last_error_at = Some(now - INSIGHT_SETTLE);
+        controller.state.pending_high_fps.insert(fatal_fp());
+        assert!(controller.should_force_high(now));
+        assert!(controller.should_send(&snapshot, now));
+    }
+
+    #[test]
+    fn force_same_fp_inside_cooldown_does_not_send() {
+        let now = Instant::now();
+        let snapshot = fatal_snapshot(now);
+        let fp = fatal_fp();
+        let mut controller = InsightController::default();
+        controller.state.last_sent_key = Some(snapshot.digest_key());
+        controller.state.last_analyze = Some(now);
+        controller.state.last_error_at = Some(now - INSIGHT_SETTLE);
+        controller.state.last_sent_high_fps.insert(fp.clone());
+        controller.state.pending_high_fps.insert(fp);
+        assert!(!controller.should_force_high(now));
+        assert!(!controller.should_send(&snapshot, now));
+    }
+
+    #[test]
+    fn force_same_fp_after_cooldown_sends() {
+        let now = Instant::now();
+        let snapshot = fatal_snapshot(now);
+        let fp = fatal_fp();
+        let mut controller = InsightController::default();
+        controller.state.last_sent_key = Some(snapshot.digest_key());
+        controller.state.last_analyze = Some(now - INSIGHT_COOLDOWN);
+        controller.state.last_error_at = Some(now - INSIGHT_SETTLE);
+        controller.state.last_sent_high_fps.insert(fp.clone());
+        controller.state.pending_high_fps.insert(fp);
+        assert!(controller.should_force_high(now));
+        assert!(controller.should_send(&snapshot, now));
+    }
+
+    #[test]
+    fn force_before_settle_does_not_send() {
+        let now = Instant::now();
+        let snapshot = fatal_snapshot(now);
+        let mut controller = InsightController::default();
+        controller.state.last_sent_key = Some(snapshot.digest_key());
+        controller.state.last_analyze = Some(now);
+        controller.state.last_error_at = Some(now);
+        controller.state.pending_high_fps.insert(fatal_fp());
+        assert!(!controller.should_force_high(now));
+        assert!(!controller.should_send(&snapshot, now));
     }
 }
