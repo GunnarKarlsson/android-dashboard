@@ -226,7 +226,9 @@ impl InsightController {
                     updated = true;
                 }
                 InsightUpdate::Reply { text, .. } => {
-                    self.state.replies.push_back(text);
+                    self.state
+                        .replies
+                        .push_back(InsightReply::from_model_text(text));
                     while self.state.replies.len() > MAX_INSIGHTS {
                         self.state.replies.pop_front();
                     }
@@ -280,9 +282,54 @@ pub enum InsightStatus {
     RequestFailed,
 }
 
+/// One stored insight reply with the local wall time it arrived.
+#[derive(Debug, Clone)]
+pub struct InsightReply {
+    /// Local receive time, e.g. `22:31:05`.
+    pub received_at: String,
+    /// Model body without a HEALTHY/DEGRADING/FAILING verdict line.
+    pub body: String,
+}
+
+impl InsightReply {
+    /// Builds a reply stamped with the current local time.
+    ///
+    /// Drops a leading HEALTHY / DEGRADING / FAILING line when present.
+    pub fn from_model_text(text: String) -> Self {
+        Self {
+            received_at: chrono::Local::now().format("%H:%M:%S").to_string(),
+            body: body_without_verdict(&text),
+        }
+    }
+}
+
+/// Returns the model text with a leading verdict line removed when present.
+fn body_without_verdict(text: &str) -> String {
+    let text = text.trim();
+    let Some((first, rest)) = text.split_once('\n') else {
+        return if is_verdict_line(text) {
+            String::new()
+        } else {
+            text.to_string()
+        };
+    };
+    if is_verdict_line(first.trim()) {
+        rest.trim_start().to_string()
+    } else {
+        text.to_string()
+    }
+}
+
+fn is_verdict_line(line: &str) -> bool {
+    matches!(
+        line.split_whitespace().next(),
+        Some("HEALTHY" | "DEGRADING" | "FAILING")
+    )
+}
+
 pub struct InsightState {
     pub status: InsightStatus,
-    pub replies: VecDeque<String>,
+    pub replies: VecDeque<InsightReply>,
     /// Last user-facing failure text when [`InsightStatus::RequestFailed`].
     pub last_failure: Option<String>,
     pub(crate) last_analyze: Option<Instant>,
@@ -510,5 +557,30 @@ mod tests {
         controller.state.pending_high_fps.insert(fatal_fp());
         assert!(!controller.should_force_high(now));
         assert!(!controller.should_send(&snapshot, now));
+    }
+
+    #[test]
+    fn strips_verdict_headline() {
+        assert_eq!(
+            body_without_verdict("DEGRADING\nTop issues: crash"),
+            "Top issues: crash"
+        );
+        assert_eq!(
+            body_without_verdict("FAILING  disk full\nNext checks: free space"),
+            "Next checks: free space"
+        );
+        assert_eq!(body_without_verdict("HEALTHY"), "");
+        assert_eq!(
+            body_without_verdict("Top issues: already clean"),
+            "Top issues: already clean"
+        );
+    }
+
+    #[test]
+    fn reply_stamps_local_time() {
+        let reply = InsightReply::from_model_text("DEGRADING\nTop issues: anr".to_string());
+        assert_eq!(reply.body, "Top issues: anr");
+        assert_eq!(reply.received_at.len(), 8);
+        assert!(reply.received_at.chars().nth(2) == Some(':'));
     }
 }

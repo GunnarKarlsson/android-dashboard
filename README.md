@@ -85,7 +85,7 @@ Before dispatch to the API, error and fatal logcat lines are summarized, noise-s
 
 When the mix of errors changes, the app posts again, with a cooldown. Fatal and ANR lines force a refresh after a short settle (coalesced so a crash burst is one request).
 
-The model replies with a one-line verdict (`HEALTHY` / `DEGRADING` / `FAILING`), top issues, and a recommendation for what to do next. That text shows in the **Insight** panel.
+The model replies with top issues and a recommendation for what to do next. Each reply is shown in the **Insight** panel under a local timestamp for when it arrived.
 
 No request is sent until base URL, model, and API key are set via **Configure AI Provider** (cog menu ⚙️).
 
@@ -137,7 +137,7 @@ Expected response format from API:
     {
       "message": {
         "role": "assistant",
-        "content": "FAILING\nTop issues: ...\nNext checks: ..."
+        "content": "Top issues: ...\nNext checks: ..."
       }
     }
   ]
