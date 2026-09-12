@@ -53,10 +53,14 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, pane: &mut LogcatPane, auto_scroll: b
 
 /// Draws the error-logcat body and returns the number of rows in the log text area.
 pub fn logcat_errors_panel(ui: &mut egui::Ui, pane: &mut LogcatPane, auto_scroll: bool) -> usize {
-    ui.horizontal(|ui| {
-        ui.selectable_value(&mut pane.errors_tab, ErrorsTab::Errors, "Errors");
-        ui.selectable_value(&mut pane.errors_tab, ErrorsTab::Crashes, "Panics/Crashes");
-    });
+    ui_elements::folder_tab_bar(
+        ui,
+        &mut pane.errors_tab,
+        &[
+            (ErrorsTab::Errors, "Errors"),
+            (ErrorsTab::Crashes, "Panics/Crashes"),
+        ],
+    );
 
     match pane.errors_tab {
         ErrorsTab::Errors => logcat_errors_tab(ui, pane, auto_scroll),
