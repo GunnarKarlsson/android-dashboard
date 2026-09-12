@@ -72,7 +72,7 @@ The dashboard shows the following data in widgets:
 | RAM | Live memory usage. |
 | Storage | Live internal storage. |
 | Logcat | Streaming logcat for the selected device. Filter by tag. Pause and timestamps are independent of Logcat Errors. |
-| Logcat Errors | The same live stream, Error and Fatal only. Tag filter, pause, and timestamps are independent of Logcat. |
+| Logcat Errors | The same live stream, Error and Fatal only. Tabs: Errors (all E/F) and Panics/Crashes (filtered). Each tab has its own tag filter; pause and timestamps are shared and independent of Logcat. |
 | Insight | An LLM's opinion on the error logs. See [AI insights](#ai-insights) for details. |
 | Storage Details | Directory totals and per-app storage. |
 | Network Activity | Per-interface RX/TX totals and current down/up rates. |

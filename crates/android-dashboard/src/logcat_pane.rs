@@ -8,6 +8,14 @@ use crate::ui_elements;
 
 pub const MAX_LOG_LINES: usize = 10_000;
 
+/// Selected sub-view inside the Logcat Errors panel.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ErrorsTab {
+    #[default]
+    Errors,
+    Crashes,
+}
+
 #[derive(Clone, Debug)]
 pub struct LogcatTagFilter {
     pub tag: String,
@@ -20,6 +28,9 @@ pub struct LogcatPane {
     pub pending: VecDeque<CachedLogLine>,
     pub tag_input: String,
     pub tag_filters: Vec<LogcatTagFilter>,
+    pub crash_tag_input: String,
+    pub crash_tag_filters: Vec<LogcatTagFilter>,
+    pub errors_tab: ErrorsTab,
     pub auto_update_feed: bool,
     pub show_timestamps: bool,
     pub error: Option<String>,
@@ -33,6 +44,9 @@ impl Default for LogcatPane {
             pending: VecDeque::new(),
             tag_input: String::new(),
             tag_filters: Vec::new(),
+            crash_tag_input: String::new(),
+            crash_tag_filters: Vec::new(),
+            errors_tab: ErrorsTab::Errors,
             auto_update_feed: true,
             show_timestamps: true,
             error: None,
@@ -49,6 +63,9 @@ impl LogcatPane {
         self.pending.clear();
         self.tag_input.clear();
         self.tag_filters.clear();
+        self.crash_tag_input.clear();
+        self.crash_tag_filters.clear();
+        self.errors_tab = ErrorsTab::Errors;
         self.auto_update_feed = true;
         self.error = None;
     }
@@ -105,6 +122,16 @@ impl LogcatPane {
     pub fn remove_tag(&mut self, index: usize) {
         remove_tag_filter(&mut self.tag_filters, index);
     }
+
+    /// Adds a trimmed crash-tab tag filter if it is non-empty and not already present.
+    pub fn add_crash_tag(&mut self) {
+        add_tag_filter(&mut self.crash_tag_input, &mut self.crash_tag_filters);
+    }
+
+    /// Removes the crash-tab tag filter at `index` if it exists.
+    pub fn remove_crash_tag(&mut self, index: usize) {
+        remove_tag_filter(&mut self.crash_tag_filters, index);
+    }
 }
 
 #[derive(Clone)]
@@ -132,6 +159,30 @@ impl CachedLogLine {
     /// Returns true for synthesized adb/logcat diagnostics (level `E`, tag `adb`).
     pub(crate) fn is_adb_diagnostic(&self) -> bool {
         self.level == 'E' && self.tag == "adb"
+    }
+
+    /// Returns true when the line looks like a fatal, ANR, panic, or native crash.
+    ///
+    /// Matches Fatal level; tags `AndroidRuntime`, `DEBUG`, or `libc`; or message substrings
+    /// `FATAL EXCEPTION`, `ANR in`, `Fatal signal`, `tombstone`, `CheckJNI`, or `panic`
+    /// (ASCII case-insensitive).
+    pub fn is_crash_or_panic(&self) -> bool {
+        if self.level == 'F' {
+            return true;
+        }
+        if matches!(self.tag.as_str(), "AndroidRuntime" | "DEBUG" | "libc") {
+            return true;
+        }
+        let message = self.message.to_ascii_lowercase();
+        const NEEDLES: &[&str] = &[
+            "fatal exception",
+            "anr in",
+            "fatal signal",
+            "tombstone",
+            "checkjni",
+            "panic",
+        ];
+        NEEDLES.iter().any(|needle| message.contains(needle))
     }
 
     /// Builds an `InsightLine` from this cached log line.
@@ -208,14 +259,68 @@ mod tests {
     use super::*;
 
     fn entry(level: char, message: &str) -> LogEntry {
+        entry_with_tag(level, "Tag", message)
+    }
+
+    fn entry_with_tag(level: char, tag: &str, message: &str) -> LogEntry {
         LogEntry {
             timestamp: "09-01 17:00:01.456".to_string(),
             pid: 1,
             tid: 1,
             level,
-            tag: "Tag".to_string(),
+            tag: tag.to_string(),
             message: message.to_string(),
         }
+    }
+
+    #[test]
+    fn is_crash_or_panic_matches_fatal_level() {
+        let line = CachedLogLine::from_entry(&entry('F', "something died"));
+        assert!(line.is_crash_or_panic());
+    }
+
+    #[test]
+    fn is_crash_or_panic_matches_android_runtime_tag() {
+        let line = CachedLogLine::from_entry(&entry_with_tag(
+            'E',
+            "AndroidRuntime",
+            "FATAL EXCEPTION: main",
+        ));
+        assert!(line.is_crash_or_panic());
+    }
+
+    #[test]
+    fn is_crash_or_panic_matches_anr_message() {
+        let line = CachedLogLine::from_entry(&entry_with_tag(
+            'E',
+            "ActivityManager",
+            "ANR in com.example.app",
+        ));
+        assert!(line.is_crash_or_panic());
+    }
+
+    #[test]
+    fn is_crash_or_panic_rejects_ordinary_error() {
+        let line =
+            CachedLogLine::from_entry(&entry_with_tag('E', "OkHttp", "unexpected end of stream"));
+        assert!(!line.is_crash_or_panic());
+    }
+
+    #[test]
+    fn reset_view_clears_crash_tags_and_tab() {
+        let mut pane = LogcatPane {
+            errors_tab: ErrorsTab::Crashes,
+            crash_tag_input: "foo".to_string(),
+            crash_tag_filters: vec![LogcatTagFilter {
+                tag: "bar".to_string(),
+                color_index: 0,
+            }],
+            ..LogcatPane::default()
+        };
+        pane.reset_view();
+        assert_eq!(pane.errors_tab, ErrorsTab::Errors);
+        assert!(pane.crash_tag_input.is_empty());
+        assert!(pane.crash_tag_filters.is_empty());
     }
 
     #[test]
