@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use eframe::egui;
 
 use crate::app::{InsightController, InsightStatus};
+use crate::insight::InsightReply;
 use crate::theme;
 use crate::ui_elements;
 
@@ -42,17 +43,30 @@ pub fn insight_panel(ui: &mut egui::Ui, insight: &InsightController, auto_scroll
                         ui.separator();
                         ui.add_space(REPLY_SEPARATOR_GAP);
                     }
-                    ui.label(reply.as_str());
+                    ui.label(format!(
+                        "Response from ai provider at: {}",
+                        reply.received_at
+                    ));
+                    if !reply.body.is_empty() {
+                        ui.label(reply.body.as_str());
+                    }
                 }
             });
         insight_reply_line_count(&insight.state.replies)
     })
 }
 
-/// Counts newline-separated lines across insight replies.
-fn insight_reply_line_count(replies: &VecDeque<String>) -> usize {
+/// Counts newline-separated lines across insight replies, including the timestamp line.
+fn insight_reply_line_count(replies: &VecDeque<InsightReply>) -> usize {
     replies
         .iter()
-        .map(|reply| reply.lines().count().max(1))
+        .map(|reply| {
+            let body_lines = if reply.body.is_empty() {
+                0
+            } else {
+                reply.body.lines().count().max(1)
+            };
+            1 + body_lines
+        })
         .sum()
 }

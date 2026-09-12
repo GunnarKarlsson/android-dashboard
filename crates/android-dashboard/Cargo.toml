@@ -9,6 +9,7 @@ license.workspace = true
 adb-client = { path = "../adb-client", version = "0.1.0" }
 ai-insight = { path = "../ai-insight", version = "0.1.0" }
 anyhow.workspace = true
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 crossbeam-channel.workspace = true
 dirs.workspace = true
 eframe.workspace = true

@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use eframe::egui;
 
-use crate::app::{CachedLogLine, LogcatPane, LogcatTagFilter};
+use crate::app::{CachedLogLine, ErrorsTab, LogcatPane, LogcatTagFilter};
 use crate::theme;
 use crate::ui_elements;
 
@@ -34,7 +34,7 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, pane: &mut LogcatPane, auto_scroll: b
 
     let tag_filters = pane.tag_filters.clone();
     let show_timestamps = pane.show_timestamps;
-    let matching = filtered_line_indices(&pane.lines, &tag_filters, show_timestamps);
+    let matching = filtered_line_indices(&pane.lines, &tag_filters, show_timestamps, false);
 
     show_log_scroll(
         ui,
@@ -53,6 +53,23 @@ pub fn logcat_all_panel(ui: &mut egui::Ui, pane: &mut LogcatPane, auto_scroll: b
 
 /// Draws the error-logcat body and returns the number of rows in the log text area.
 pub fn logcat_errors_panel(ui: &mut egui::Ui, pane: &mut LogcatPane, auto_scroll: bool) -> usize {
+    ui_elements::folder_tab_bar(
+        ui,
+        &mut pane.errors_tab,
+        &[
+            (ErrorsTab::Errors, "Errors"),
+            (ErrorsTab::Crashes, "Panics/Crashes"),
+        ],
+    );
+
+    match pane.errors_tab {
+        ErrorsTab::Errors => logcat_errors_tab(ui, pane, auto_scroll),
+        ErrorsTab::Crashes => logcat_crashes_tab(ui, pane, auto_scroll),
+    }
+}
+
+/// Draws the Errors tab body (unchanged E/F view with its own tag filters).
+fn logcat_errors_tab(ui: &mut egui::Ui, pane: &mut LogcatPane, auto_scroll: bool) -> usize {
     ui_elements::filter_row(ui, |ui| {
         ui.label("Tag filter:");
         let response =
@@ -80,7 +97,7 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, pane: &mut LogcatPane, auto_scroll
 
     let tag_filters = pane.tag_filters.clone();
     let show_timestamps = pane.show_timestamps;
-    let matching = filtered_line_indices(&pane.lines, &tag_filters, show_timestamps);
+    let matching = filtered_line_indices(&pane.lines, &tag_filters, show_timestamps, false);
 
     show_log_scroll(
         ui,
@@ -90,6 +107,60 @@ pub fn logcat_errors_panel(ui: &mut egui::Ui, pane: &mut LogcatPane, auto_scroll
             stick_to_bottom: auto_scroll,
             show_timestamps,
             scroll_id: egui::Id::new("logcat_errors_scroll"),
+            style: LogScrollStyle::ErrorsOnly,
+            tag_filters: Some(&tag_filters),
+        },
+    );
+    matching.len()
+}
+
+/// Draws the Panics/Crashes tab body over the same E/F ring with crash tags.
+fn logcat_crashes_tab(ui: &mut egui::Ui, pane: &mut LogcatPane, auto_scroll: bool) -> usize {
+    ui_elements::filter_row(ui, |ui| {
+        ui.label("Tag filter:");
+        let response = ui_elements::tag_filter_input(
+            ui,
+            &mut pane.crash_tag_input,
+            "logcat_errors_crash_tag_input",
+        );
+        if response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
+            pane.add_crash_tag();
+            response.request_focus();
+        }
+    });
+
+    let mut remove_tag_index = None;
+    ui_elements::tag_filter_row(ui, &pane.crash_tag_filters, &mut remove_tag_index);
+    if let Some(index) = remove_tag_index {
+        pane.remove_crash_tag(index);
+    }
+
+    if let Some(error) = &pane.error {
+        ui_elements::error_label(ui, error);
+    }
+
+    if pane.lines.is_empty() {
+        ui.label("Waiting for error log output…");
+        return 0;
+    }
+
+    let tag_filters = pane.crash_tag_filters.clone();
+    let show_timestamps = pane.show_timestamps;
+    let matching = filtered_line_indices(&pane.lines, &tag_filters, show_timestamps, true);
+
+    if matching.is_empty() {
+        ui.label("No panics or crashes in the error buffer…");
+        return 0;
+    }
+
+    show_log_scroll(
+        ui,
+        LogScrollArgs {
+            lines: &pane.lines,
+            matching: &matching,
+            stick_to_bottom: auto_scroll,
+            show_timestamps,
+            scroll_id: egui::Id::new("logcat_errors_crash_scroll"),
             style: LogScrollStyle::ErrorsOnly,
             tag_filters: Some(&tag_filters),
         },
@@ -117,11 +188,15 @@ fn filtered_line_indices(
     lines: &VecDeque<CachedLogLine>,
     tag_filters: &[LogcatTagFilter],
     show_timestamps: bool,
+    crashes_only: bool,
 ) -> Vec<usize> {
     lines
         .iter()
         .enumerate()
-        .filter(|(_, line)| line.matches_tag_filters(tag_filters, show_timestamps))
+        .filter(|(_, line)| {
+            (!crashes_only || line.is_crash_or_panic())
+                && line.matches_tag_filters(tag_filters, show_timestamps)
+        })
         .map(|(index, _)| index)
         .collect()
 }

@@ -72,7 +72,7 @@ The dashboard shows the following data in widgets:
 | RAM | Live memory usage. |
 | Storage | Live internal storage. |
 | Logcat | Streaming logcat for the selected device. Filter by tag. Pause and timestamps are independent of Logcat Errors. |
-| Logcat Errors | The same live stream, Error and Fatal only. Tag filter, pause, and timestamps are independent of Logcat. |
+| Logcat Errors | The same live stream, Error and Fatal only. Tabs: Errors (all E/F) and Panics/Crashes (filtered). Each tab has its own tag filter; pause and timestamps are shared and independent of Logcat. |
 | Insight | An LLM's opinion on the error logs. See [AI insights](#ai-insights) for details. |
 | Storage Details | Directory totals and per-app storage. |
 | Network Activity | Per-interface RX/TX totals and current down/up rates. |
@@ -83,9 +83,9 @@ The dashboard shows the following data in widgets:
 The dashboard app submits a normalized logcat error log to a Chat Completions API of your choice, and displays the response.
 Before dispatch to the API, error and fatal logcat lines are summarized, noise-stripped and filtered to remove secret data. 
 
-When the mix of errors changes, the app posts again, with a cooldown.
+When the mix of errors changes, the app posts again, with a cooldown. Fatal and ANR lines force a refresh after a short settle (coalesced so a crash burst is one request).
 
-The model replies with a one-line verdict (`HEALTHY` / `DEGRADING` / `FAILING`), top issues, and a recommendation for what to do next. That text shows in the **Insight** panel.
+The model replies with top issues and a recommendation for what to do next. Each reply is shown in the **Insight** panel under a local timestamp for when it arrived.
 
 No request is sent until base URL, model, and API key are set via **Configure AI Provider** (cog menu ⚙️).
 
@@ -137,7 +137,7 @@ Expected response format from API:
     {
       "message": {
         "role": "assistant",
-        "content": "FAILING\nTop issues: ...\nNext checks: ..."
+        "content": "Top issues: ...\nNext checks: ..."
       }
     }
   ]

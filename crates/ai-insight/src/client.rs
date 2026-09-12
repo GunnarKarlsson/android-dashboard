@@ -45,10 +45,9 @@ pub fn complete(
         "You are an Android runtime analyst inside a terminal HUD.\n\
 Comment only on the supplied snapshot. Do not invent stack frames.\n\
 Output:\n\
-1) Verdict in one line: HEALTHY | DEGRADING | FAILING\n\
-2) Top issues: what / evidence count / likely cause\n\
-3) Next checks, max {MAX_NEXT_CHECKS} bullets\n\
-Max {MAX_REPLY_WORDS} words. No preamble."
+1) Top issues: what / evidence count / likely cause\n\
+2) Next checks, max {MAX_NEXT_CHECKS} bullets\n\
+Max {MAX_REPLY_WORDS} words. No preamble. No HEALTHY/DEGRADING/FAILING verdict line."
     );
     let body = json!({
         "model": config.model,

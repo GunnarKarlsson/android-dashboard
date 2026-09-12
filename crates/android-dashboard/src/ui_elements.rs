@@ -157,6 +157,117 @@ pub fn section_gap(ui: &mut Ui) {
     ui.add_space(panel_padding(ui).bottom as f32);
 }
 
+const FOLDER_TAB_PAD_X: f32 = 12.0;
+const FOLDER_TAB_PAD_Y: f32 = 5.0;
+const FOLDER_TAB_GAP: f32 = 3.0;
+const FOLDER_TAB_STROKE: f32 = 1.0;
+const FOLDER_TAB_TOP_RADIUS: u8 = 4;
+
+/// Folder-style tabs: the selected tab fill merges with the content below (open bottom + rail gap).
+pub fn folder_tab_bar<T: Copy + PartialEq>(ui: &mut Ui, current: &mut T, tabs: &[(T, &str)]) {
+    let font_id = FontId::new(theme::FONT_BODY, FontFamily::Proportional);
+    let text_height = ui.fonts(|f| f.row_height(&font_id));
+    let tab_height = text_height + FOLDER_TAB_PAD_Y * 2.0;
+    let row_height = tab_height + FOLDER_TAB_STROKE;
+
+    let (row_rect, _) = ui.allocate_exact_size(
+        egui::vec2(ui.available_width(), row_height),
+        egui::Sense::hover(),
+    );
+
+    let stroke = egui::Stroke::new(FOLDER_TAB_STROKE, colors::PANEL_BORDER);
+    let top_rounding = egui::CornerRadius {
+        nw: FOLDER_TAB_TOP_RADIUS,
+        ne: FOLDER_TAB_TOP_RADIUS,
+        sw: 0,
+        se: 0,
+    };
+
+    let tab_top = row_rect.top();
+    let tab_bottom = row_rect.top() + tab_height;
+    let mut x = row_rect.left();
+    let mut active_x: Option<egui::Rangef> = None;
+
+    for (index, (value, label)) in tabs.iter().enumerate() {
+        let text_size = ui.fonts(|f| {
+            f.layout_no_wrap(label.to_string(), font_id.clone(), colors::OFF_WHITE)
+                .size()
+        });
+        let tab_width = text_size.x + FOLDER_TAB_PAD_X * 2.0;
+        let tab_rect = egui::Rect::from_min_max(
+            egui::pos2(x, tab_top),
+            egui::pos2(x + tab_width, tab_bottom),
+        );
+
+        let selected = *current == *value;
+        let response = ui.interact(
+            tab_rect,
+            ui.id().with("folder_tab").with(index),
+            egui::Sense::click(),
+        );
+        if response.clicked() {
+            *current = *value;
+        }
+
+        let fill = if selected {
+            colors::PANEL_BG
+        } else if response.hovered() {
+            colors::SELECTION
+        } else {
+            egui::Color32::TRANSPARENT
+        };
+        let text_color = if selected {
+            colors::OFF_WHITE
+        } else {
+            colors::FOOTER_TEXT
+        };
+
+        let painter = ui.painter();
+        painter.rect_filled(tab_rect, top_rounding, fill);
+        painter.text(
+            tab_rect.center(),
+            egui::Align2::CENTER_CENTER,
+            *label,
+            font_id.clone(),
+            text_color,
+        );
+
+        if selected {
+            // Left, top, and right only — open bottom merges with the body.
+            let left = tab_rect.left() + 0.5;
+            let right = tab_rect.right() - 0.5;
+            let top = tab_rect.top() + 0.5;
+            let bottom = tab_rect.bottom();
+            painter.vline(left, top..=bottom, stroke);
+            painter.hline(left..=right, top, stroke);
+            painter.vline(right, top..=bottom, stroke);
+            active_x = Some(tab_rect.x_range());
+        } else {
+            painter.rect_stroke(tab_rect, top_rounding, stroke, egui::StrokeKind::Inside);
+        }
+
+        x += tab_width + FOLDER_TAB_GAP;
+    }
+
+    // Baseline rail; leave a gap under the active tab so it reads as attached to the body.
+    let rail_y = tab_bottom - 0.5;
+    match active_x {
+        Some(active) => {
+            if active.min > row_rect.left() {
+                ui.painter()
+                    .hline(row_rect.left()..=active.min, rail_y, stroke);
+            }
+            if active.max < row_rect.right() {
+                ui.painter()
+                    .hline(active.max..=row_rect.right(), rail_y, stroke);
+            }
+        }
+        None => {
+            ui.painter().hline(row_rect.x_range(), rail_y, stroke);
+        }
+    }
+}
+
 const TAG_FILTER_PAD_X: i8 = 6;
 const TAG_FILTER_PAD_Y: i8 = 4;
 const TAG_FILTER_STROKE: f32 = 1.0;

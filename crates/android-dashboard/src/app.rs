@@ -8,7 +8,7 @@ use crate::roster::{DeviceRoster, RosterEvent};
 use crate::session::{DeviceSession, SessionStartErrors};
 
 pub use crate::insight::{InsightController, InsightStatus};
-pub use crate::logcat_pane::{CachedLogLine, LogcatPane, LogcatTagFilter};
+pub use crate::logcat_pane::{CachedLogLine, ErrorsTab, LogcatPane, LogcatTagFilter};
 pub use crate::metrics::PackageStorageState;
 
 const REPAINT_INTERVAL: Duration = Duration::from_millis(200);
@@ -113,6 +113,9 @@ impl App {
                 .drain_into(&mut self.logcat, &mut self.logcat_errors, &mut self.metrics);
         if outcome.error_accepted {
             self.insight.note_error();
+            if !outcome.high_severity_fps.is_empty() {
+                self.insight.note_high_severity(outcome.high_severity_fps);
+            }
         }
         if outcome.ui_changed {
             needs_repaint = true;
